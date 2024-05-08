@@ -9,6 +9,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "moment-timezone": "^0.5.45",
     "serverless": "^3.38.0",
     "serverless-offline": "^13.3.3",
     "serverless-step-functions": "^3.20.1"

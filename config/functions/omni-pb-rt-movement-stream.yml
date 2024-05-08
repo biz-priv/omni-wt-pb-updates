@@ -16,6 +16,5 @@ function:
   events:
       - stream:
           arn: arn:aws:dynamodb:us-east-1:332281781429:table/omni-pb-rt-movement-dev/stream/2024-04-30T20:30:18.405
-          batchSize: 5
+          batchSize: 1
           maximumRetryAttempts: 3
-            
