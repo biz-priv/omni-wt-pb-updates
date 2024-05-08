@@ -1,6 +1,6 @@
 const AWS = require('aws-sdk');
 const _ = require('lodash');
-const { getMovementOrder,getOrder,updateMilestone} = require('./shared/dynamo');
+const { getMovementOrder,getOrder,updateMilestone} = require('../shared/dynamo');
 
 exports.handler = async (event) => {
     try {
