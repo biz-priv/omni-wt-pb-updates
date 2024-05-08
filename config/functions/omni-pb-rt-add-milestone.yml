@@ -1,0 +1,21 @@
+---
+function:
+  handler: src/movement/index.handler
+  name: omni-pb-rt-movement-stream-${self:provider.stage}
+  description: OMNI PB Real Time Movement Stream Process - ${self:provider.stage}
+  runtime: nodejs18.x
+  layers:
+    - {Ref: NodeModulesLambdaLayer}
+  timeout: 600
+  package:
+    patterns:
+      - '!**/*'
+      - 'src/movement/index.js'
+      - 'src/shared/dynamo.js'
+ 
+  events:
+      - stream:
+          arn: arn:aws:dynamodb:us-east-1:332281781429:table/omni-pb-rt-movement-dev/stream/2024-04-30T20:30:18.405
+          batchSize: 5
+          maximumRetryAttempts: 3
+            
