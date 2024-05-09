@@ -7,6 +7,7 @@ provider:
   versionFunctions: false
   tags: ${self:custom.tags}
   stackTags: ${self:custom.tags}
+  deploymentBucket: ${ssm:/omni-dw/${self:provider.stage}/sls/deployment/bucket}
   role: ${ssm:/omni-dw/${self:provider.stage}/lambda/role}
   vpc:
     securityGroupIds:
