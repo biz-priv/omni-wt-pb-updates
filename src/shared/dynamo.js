@@ -78,11 +78,36 @@ async function updateMilestone(finalPayload){
         console.error('Error while udating data into 214-add-milestone Dynamo Table',error)
         throw error
     }
+}
 
+async function getMovement(id){
+    const movementParams = {
+        TableName: process.env['MOVEMENT_DB'],
+        IndexName: 'OrderStopIndex',
+        KeyConditionExpression: 'origin_stop_id = :id',
+        FilterExpression: 'status IN (:statusA, :statusC)',
+        ExpressionAttributeValues: {
+            ':id': id,
+            ':statusA': 'a',
+            ':statusC': 'c'
+        }    
+    }
+
+    try {
+        const result = await query(movementParams);
+        console.log(result);
+        const items = _.get(result, 'Items', []);
+        return get(result, 'id', '');
+
+    } catch (error) {
+        console.error('Error in getMovement function:', error);
+        throw error
+    }
 }
 
 module.exports = {
     getMovementOrder,
     getOrder,
-    updateMilestone
+    updateMilestone,
+    getMovement
 };
