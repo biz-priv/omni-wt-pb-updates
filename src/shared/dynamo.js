@@ -9,7 +9,7 @@ async function query(params) {
         try {
             const result = await dynamoDB.query(params).promise();
             let data = _.get(result, 'Items', []);
-
+            
             if (result.LastEvaluatedKey) {
                 params.ExclusiveStartKey = result.LastEvaluatedKey;
                 data = data.concat(await helper(params));
@@ -64,7 +64,9 @@ async function getOrder(orderId) {
 
     try {
         const result = await query(orderParams);
-        const data = _.get(result, 'Items');
+        
+        const items = _.get(result, 'Items', []);
+
         if (items.length > 0) {
             const housebillNum = _.get(items, '[0]blnum');
             console.info('Housebill Number:', housebillNum);

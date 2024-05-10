@@ -87,7 +87,7 @@ module.exports.handler = async (event,context) => {
         await Promise.all(promises);
     } catch (error) {
         console.error('Error in handler:', error);
-        // id, statuscode, housebill, eventdatetime, sattus,
+        
         await updateMilestone({
             Id ,
             EventDateTime: moment.tz('America/Chicago').format(),
