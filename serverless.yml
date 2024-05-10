@@ -43,5 +43,6 @@ package:
 
 functions:
   omni-pb-rt-movement-stream: ${file(config/functions/omni-pb-rt-movement-stream.yml):function}
+  omni-pb-rt-stop-db-stream: ${file(config/functions/omni-pb-rt-stop-db-stream.yml):function}
 
 
