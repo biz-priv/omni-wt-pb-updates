@@ -63,8 +63,8 @@ async function getOrder(orderId) {
     console.log('Fetching data from:', orderParams.TableName);
 
     try {
-        const items = await query(orderParams);
-
+        const result = await query(orderParams);
+        const data = _.get(result, 'Items');
         if (items.length > 0) {
             const housebillNum = _.get(items, '[0]blnum');
             console.info('Housebill Number:', housebillNum);

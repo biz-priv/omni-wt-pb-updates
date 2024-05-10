@@ -15,7 +15,7 @@ module.exports.handler = async (event,context) => {
     let Housebill;
 
     try {
-        functionName = get(context, 'functionName');
+        functionName = _.get(context, 'functionName');
         const records = _.get(event, 'Records', []);
         const promises = records.map(async (record) => {
             const newUnmarshalledRecord = AWS.DynamoDB.Converter.unmarshall(record.dynamodb.NewImage);
