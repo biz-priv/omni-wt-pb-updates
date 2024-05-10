@@ -21,7 +21,7 @@ custom:
   region: ${opt:region, 'us-east-1'}
   stage: ${opt:stage, 'dev'}
   tags:
-    Application: DataPipeline
+    Application: WT-PB Integration
     CreateBy: BizCloudExperts
     Environment: ${self:custom.stage}
 
