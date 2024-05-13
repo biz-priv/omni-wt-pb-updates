@@ -126,7 +126,14 @@ async function addMilestoneApi(postData) {
             throw new Error(`API Request Failed: ${res}`);
         }
     } catch (error) {
-        console.error("e:addMilestoneApi", error);
-        throw error;
+        const response = error.response;
+        console.error("Error in addMilestoneApi", {
+            message: error.message,
+            response: {
+                status: response?.status,
+                data: response?.data
+            }
+        });
+        throw error; // re-throw the error after logging
     }
-} 
+}
