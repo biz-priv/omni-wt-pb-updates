@@ -15,11 +15,10 @@ function:
  
   events:
       - stream:
-          arn: arn:aws:dynamodb:us-east-1:332281781429:table/omni-pb-rt-stop-${self:provider.stage}/stream/2024-04-30T20:30:17.758
+          arn: arn:aws:dynamodb:us-east-1:332281781429:table/omni-pb-rt-stop-dev/stream/2024-05-09T20:02:58.575
           batchSize: 1
           maximumRetryAttempts: 3
 
   environment:
     MOVEMENT_DB: 'omni-pb-rt-movement-dev'
 
-    
