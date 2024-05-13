@@ -31,28 +31,27 @@ exports.handler = async (event) => {
 
             //Status Code = APL
             if((oldActualArrival==='' || oldActualArrival===null || oldActualArrival.length===0) && (newActualArrival!==null || newActualArrival.length>0 || newActualArrival!=='') && newStopType==='PU'){
-                console.log('entered')
                 StatusCode = 'APL';
                 const finalPayload = await getPayloadForStopDb(StatusCode, stopId);
                 await updateMilestone(finalPayload)
             }
 
             //status Code = TTC
-            if(oldActualDeparture==null & newActualDeparture!=null & newStopType==='PU'){
+            if((oldActualDeparture==='' || oldActualDeparture===null || oldActualDeparture.length===0) && (newActualDeparture!==null || newActualDeparture.length>0 || newActualDeparture!=='') && newStopType==='PU'){
                 StatusCode = 'TTC';
                 const finalPayload = await getPayloadForStopDb(StatusCode, stopId);
                 await updateMilestone(finalPayload)
             }
 
             //status Code = AAD
-            if(oldActualArrival==null & newActualArrival!=null & newStopType==='SO'){
+            if((oldActualArrival==='' || oldActualArrival===null || oldActualArrival.length===0) && (newActualArrival!==null || newActualArrival.length>0 || newActualArrival!=='') && newStopType==='SO'){
                 StatusCode = 'AAD';
                 const finalPayload = await getPayloadForStopDb(StatusCode, stopId);
                 await updateMilestone(finalPayload)
             }
             
             //status Code = DWP
-            if(oldActualDeparture==null & newActualDeparture!=null & newStopType==='SO'){
+            if((oldActualDeparture==='' || oldActualDeparture===null || oldActualDeparture.length===0) && (newActualDeparture!==null || newActualDeparture.length>0 || newActualDeparture!=='') && newStopType==='SO'){
                 StatusCode = 'DWP';
                 const finalPayload = await getPayloadForStopDb(StatusCode, stopId);
                 await updateMilestone(finalPayload)
@@ -79,7 +78,7 @@ exports.handler = async (event) => {
         console.error('Error in handler:', error);
         // id, statuscode, housebill, eventdatetime, sattus,
         await updateMilestone({
-            Id ,
+            stopId ,
             EventDateTime: moment.tz('America/Chicago').format(),
             Housebill: Housebill.toString(),
             ErrorMessage: error.message,
@@ -93,7 +92,7 @@ async function getPayloadForStopDb(StatusCode, stopId){
     try{
         const movementId = await getMovement(stopId);
         const order_id  = await getMovementOrder(movementId);
-        Housebill  = await getOrder(order_id);
+        const Housebill  = await getOrder(order_id);
 
         const finalPayload = {
             movementId,
