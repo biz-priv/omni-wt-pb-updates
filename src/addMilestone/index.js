@@ -80,7 +80,21 @@ let functionName;
 
 module.exports.handler = async (event,context) => {
   
-    console.info("Test lambda has been triggered on Dynamo Trigger")
+    console.info("Test lambda has been triggered on Dynamo Trigger WITH fILTER EXPRESSION.")
+
+    let sqsEventRecords = [];
+
+    try {
+        console.log("event", JSON.stringify(event));
+        sqsEventRecords = event.Records;
+
+        sqsEventRecords.forEach(record => {
+            console.log("Processing record:", JSON.stringify(record));
+        });
+
+    } catch (error) {
+        console.error("Error processing event:", error);        
+    }
 
 };
 
