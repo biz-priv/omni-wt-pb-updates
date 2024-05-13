@@ -43,7 +43,7 @@ module.exports.handler = async (event, context) => {
 
             console.info('Processed Item:', itemObj);
 
-            const XMLpayLoad = makeJsonToXml(itemObj)
+            const XMLpayLoad = await makeJsonToXml(itemObj)
             console.info("XML Payload Generated :",XMLpayLoad)
         }
 
