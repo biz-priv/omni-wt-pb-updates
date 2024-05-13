@@ -5,6 +5,7 @@ const moment = require('moment-timezone');
 const axios = require('axios');
 const sns = new AWS.SNS();
 const { get } = require("lodash");
+const { js2xml } = require('xml-js');
 
 const { ERROR_SNS_TOPIC_ARN, ADD_MILESTONE_TABLE_NAME,WT_SOAP_USERNAME} = process.env;
 
@@ -42,7 +43,7 @@ module.exports.handler = async (event, context) => {
 
             console.info('Processed Item:', itemObj);
 
-            XMLpayLoad = makeJsonToXml(itemObj)
+            const XMLpayLoad = makeJsonToXml(itemObj)
             console.info("XML Payload Generated :",XMLpayLoad)
         }
 
