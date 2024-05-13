@@ -1,0 +1,48 @@
+service: omni-214-pb-milestone-updates 
+
+provider:
+  name: aws
+  region: ${opt:region, 'us-east-1'}
+  stage: ${opt:stage, 'dev'}
+  versionFunctions: false
+  tags: ${self:custom.tags}
+  stackTags: ${self:custom.tags}
+  role: ${ssm:/omni-dw/${self:provider.stage}/lambda/role}
+  deploymentBucket:
+    name: ${ssm:/omni-dw/${self:provider.stage}/sls/deployment/bucket}
+    serverSideEncryption: AES256
+  vpc:
+    securityGroupIds:
+      - ${ssm:/omni-dw/${self:provider.stage}/lambda/sgId}
+    subnetIds:
+      - ${ssm:/omni-dw/${self:provider.stage}/lambda/subnetA}
+
+custom:
+  region: ${opt:region, 'us-east-1'}
+  stage: ${opt:stage, 'dev'}
+  tags:
+    Application: WT-PB Integration
+    CreateBy: BizCloudExperts
+    Environment: ${self:custom.stage}
+
+layers:
+  NodeModules:
+    path: lambdaLayer/lib
+    name: ${self:service}-layer-${self:provider.stage}
+    description: Lambda layer for all node modules - ${self:provider.stage}
+    compatibleRuntimes:
+      - nodejs20.x
+    retain: false
+
+plugins:
+  - serverless-offline
+  - serverless-step-functions
+
+package:
+  individually: true
+
+functions:
+  omni-pb-rt-movement-stream: ${file(config/functions/omni-pb-rt-movement-stream.yml):function}
+  # test-lambda: ${file(config/functions/omni-pb-rt-test.yml):function}
+
+
