@@ -13,7 +13,7 @@ async function query(params) {
 
 async function getMovementOrder(id) {
     const movementParams = {
-        TableName: 'omni-pb-rt-movement-order',
+        TableName: 'omni-pb-rt-movement-order-dev',
         IndexName: 'movement_id-index',
         KeyConditionExpression: 'movement_id = :movement_id',
         ExpressionAttributeValues: {
@@ -68,7 +68,7 @@ async function getOrder(orderId) {
 
 async function updateMilestone(finalPayload){
     const addMilestoneParams = {
-        TableName: 'omni-pb-214-add-milestone',
+        TableName: 'omni-pb-214-add-milestone-dev',
         Item: finalPayload
     };
     try {
@@ -83,21 +83,20 @@ async function updateMilestone(finalPayload){
 async function getMovement(id){
     const movementParams = {
         TableName: process.env['MOVEMENT_DB'],
-        IndexName: 'OrderStopIndex',
+        IndexName: 'OriginStopIndex',
         KeyConditionExpression: 'origin_stop_id = :id',
         FilterExpression: 'status IN (:statusA, :statusC)',
         ExpressionAttributeValues: {
             ':id': id,
-            ':statusA': 'a',
-            ':statusC': 'c'
+            ':statusA': 'A',
+            ':statusC': 'C'
         }    
     }
 
     try {
         const result = await query(movementParams);
-        console.log(result);
         const items = _.get(result, 'Items', []);
-        return get(result, 'id', '');
+        return get(items[0], 'id', '');
 
     } catch (error) {
         console.error('Error in getMovement function:', error);

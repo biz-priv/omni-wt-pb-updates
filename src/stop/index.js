@@ -16,7 +16,7 @@ exports.handler = async (event) => {
             const oldUnmarshalledRecord = AWS.DynamoDB.Converter.unmarshall(record.dynamodb.OldImage);
 
             stopId = _.get(newUnmarshalledRecord, 'id');
-            console.info('id coming from stop table:', Id);
+            console.info('id coming from stop table:', stopId);
 
             const oldActualArrival = _.get(oldUnmarshalledRecord, 'actual_arrival');
             const newActualArrival = _.get(newUnmarshalledRecord, 'actual_arrival');
@@ -30,7 +30,8 @@ exports.handler = async (event) => {
 
 
             //Status Code = APL
-            if(oldActualArrival==null & newActualArrival!=null & newStopType==='PU'){
+            if((oldActualArrival==='' || oldActualArrival===null || oldActualArrival.length===0) && (newActualArrival!==null || newActualArrival.length>0 || newActualArrival!=='') && newStopType==='PU'){
+                console.log('entered')
                 StatusCode = 'APL';
                 const finalPayload = await getPayloadForStopDb(StatusCode, stopId);
                 await updateMilestone(finalPayload)
@@ -95,7 +96,7 @@ async function getPayloadForStopDb(StatusCode, stopId){
         Housebill  = await getOrder(order_id);
 
         const finalPayload = {
-            Id,
+            movementId,
             StatusCode,
             Housebill: Housebill.toString(),
             EventDateTime: moment.tz('America/Chicago').format(),
