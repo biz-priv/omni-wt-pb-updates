@@ -7,7 +7,7 @@ const sns = new AWS.SNS();
 const { get } = require("lodash");
 const { js2xml } = require('xml-js');
 
-const { ERROR_SNS_TOPIC_ARN, ADD_MILESTONE_TABLE_NAME,WT_SOAP_USERNAME} = process.env;
+const { ERROR_SNS_TOPIC_ARN, ADD_MILESTONE_TABLE_NAME,WT_SOAP_USERNAME, ADD_MILESTONE_URL} = process.env;
 
 let functionName;
 
@@ -45,6 +45,10 @@ module.exports.handler = async (event, context) => {
 
             const XMLpayLoad = await makeJsonToXml(itemObj)
             console.info("XML Payload Generated :",XMLpayLoad)
+
+            const dataResponse = await addMilestoneApi(XMLpayLoad);
+            console.info("dataResponse", dataResponse);
+            itemObj.Reponse = dataResponse;
         }
 
     } catch (error) {
@@ -98,3 +102,31 @@ async function makeJsonToXml(itemObj) {
         return null;
     }
 }
+
+async function addMilestoneApi(postData) {
+    try {
+
+        const config = {
+            method: 'post',
+            headers: {
+                'Accept': 'text/xml',
+                'Content-Type': 'text/xml'
+            },
+            data: postData
+        };
+
+        config.url = `${process.env.ADD_MILESTONE_URL}?op=UpdateStatus`;     
+
+        console.log("config: ", config)
+        const res = await axios.request(config);
+        if (get(res, "status", "") == 200) {
+            return get(res, "data", "");
+        } else {
+            itemObj.xmlResponsePayload = get(res, "data", "");
+            throw new Error(`API Request Failed: ${res}`);
+        }
+    } catch (error) {
+        console.error("e:addMilestoneApi", error);
+        throw error;
+    }
+} 
