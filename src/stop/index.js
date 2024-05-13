@@ -9,6 +9,8 @@ exports.handler = async (event) => {
     let StatusCode;
     let Housebill;
 
+    console.info("Event: ", event);
+
     try {
         const records = _.get(event, 'Records', []);
         const promises = records.map(async (record) => {
