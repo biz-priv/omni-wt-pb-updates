@@ -85,7 +85,10 @@ async function getMovement(id){
         TableName: process.env['MOVEMENT_DB'],
         IndexName: 'OriginStopIndex',
         KeyConditionExpression: 'origin_stop_id = :id',
-        FilterExpression: 'status IN (:statusA, :statusC)',
+        FilterExpression: '#status IN (:statusA, :statusC)',
+        ExpressionAttributeNames: {
+            '#status': 'status'
+        },
         ExpressionAttributeValues: {
             ':id': id,
             ':statusA': 'A',
@@ -96,7 +99,7 @@ async function getMovement(id){
     try {
         const result = await query(movementParams);
         const items = _.get(result, 'Items', []);
-        return get(items[0], 'id', '');
+        return _.get(items[0], 'id', '');
 
     } catch (error) {
         console.error('Error in getMovement function:', error);
