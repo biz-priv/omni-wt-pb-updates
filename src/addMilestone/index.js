@@ -6,7 +6,7 @@ const axios = require('axios');
 const sns = new AWS.SNS();
 const { get } = require("lodash");
 
-const { ERROR_SNS_TOPIC_ARN, ADD_MILESTONE_TABLE_NAME} = process.env;
+const { ERROR_SNS_TOPIC_ARN, ADD_MILESTONE_TABLE_NAME,WT_SOAP_USERNAME} = process.env;
 
 let functionName;
 
@@ -41,6 +41,9 @@ module.exports.handler = async (event, context) => {
             });
 
             console.info('Processed Item:', itemObj);
+
+            XMLpayLoad = makeJsonToXml(itemObj)
+            console.info("XML Payload Generated :",XMLpayLoad)
         }
 
     } catch (error) {
@@ -63,37 +66,34 @@ async function publishSNSTopic({ Id, message}) {
       throw error;
     }
   }
-  
-async function addMilestoneApi(postData) {
+
+async function makeJsonToXml(itemObj) {
     try {
-
-        const config = {
-            method: 'post',
-            headers: {
-                'Accept': 'text/xml',
-                'Content-Type': 'text/xml'
-            },
-            data: postData
-        };
-
-        if (get(itemObj, "statusCode", "") === "DEL") {
-            config.url = `${process.env.ADD_MILESTONE_URL}?op=SubmitPOD`;
-        } else if (get(itemObj, "statusCode", "") === "LOC" || get(itemObj, "statusCode", "") === "OTH") {
-            config.url = `${process.env.ADD_MILESTONE_LOC_URL}?op=WriteTrackingNote`;
-        } else {
-            config.url = `${process.env.ADD_MILESTONE_URL}?op=UpdateStatus`;
-        }
-
-        console.log("config: ", config)
-        const res = await axios.request(config);
-        if (get(res, "status", "") == 200) {
-            return get(res, "data", "");
-        } else {
-            itemObj.xmlResponsePayload = get(res, "data", "");
-            throw new Error(`API Request Failed: ${res}`);
-        }
+        const xml = js2xml({
+            "soap:Envelope": {
+                "_attributes": {
+                    "xmlns:xsi": "http://www.w3.org/2001/XMLSchema-instance",
+                    "xmlns:xsd": "http://www.w3.org/2001/XMLSchema",
+                    "xmlns:soap": "http://schemas.xmlsoap.org/soap/envelope/"
+                },
+                "soap:Body": {
+                    UpdateStatus: {
+                        "_attributes": {
+                            "xmlns": "http://tempuri.org/"
+                        },
+                        HandlingStation: "",
+                        HAWB: _.get(itemObj, "Housebill", ""),
+                        UserName: WT_SOAP_USERNAME,
+                        StatusCode: _.get(itemObj, "StatusCode", ""),
+                        EventDateTime: _.get(itemObj, "EventDateTime", ""),
+                    }
+                }
+            }
+        }, {compact: true, ignoreComment: true, spaces: 4});
+        console.info("XML payload", xml);
+        return xml;
     } catch (error) {
-        console.error("e:addMilestoneApi", error);
-        throw error;
+        console.error("Error generating XML:", error);
+        return null;
     }
-} 
+}
