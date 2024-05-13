@@ -22,7 +22,7 @@ function:
           filterCriteria:
             filters:
               - pattern: '{ "dynamodb": { "NewImage": { "Status": { "S": ["PENDING"] } } } }'
-          maximumRetryAttempts: 3
+          maximumRetryAttempts: 1   ##chane it back to 3 after testing
 
   environment:
     ERROR_SNS_TOPIC_ARN: ${ssm:/omni-pb-rt/${self:provider.stage}/error-notification/arn}
