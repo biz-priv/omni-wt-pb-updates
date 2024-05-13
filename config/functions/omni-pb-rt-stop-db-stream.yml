@@ -1,6 +1,6 @@
 ---
 function:
-  handler: src/movement/index.handler
+  handler: src/stop/index.handler
   name: omni-pb-rt-stop-db-stream-${self:provider.stage}
   description: OMNI PB Real Time Stop Table Stream Process - ${self:provider.stage}
   runtime: nodejs18.x
