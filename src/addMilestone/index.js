@@ -134,6 +134,6 @@ async function addMilestoneApi(postData) {
                 data: response?.data
             }
         });
-        throw error; // re-throw the error after logging
+        throw error; 
     }
 }

@@ -19,9 +19,8 @@ function:
           arn: "arn:aws:dynamodb:us-east-1:332281781429:table/omni-pb-214-add-milestone-dev/stream/2024-05-09T22:16:02.791"
           batchSize: 1
           enabled: true
-          filterCriteria:
-            filters:
-              - pattern: '{ "dynamodb": { "NewImage": { "Status": { "S": ["PENDING"] } } } }'
+          filterPatterns:
+          - { dynamodb: { NewImage: { Status: { S: ['PENDING'] } } } }
           maximumRetryAttempts: 1   ##chane it back to 3 after testing
 
   environment:
