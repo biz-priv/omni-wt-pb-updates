@@ -9,7 +9,7 @@ exports.handler = async (event) => {
     let StatusCode;
     let Housebill;
 
-    console.info("Event: ", event);
+    console.info("Event: ", JSON.stringify(event));
 
     try {
         const records = _.get(event, 'Records', []);
@@ -32,42 +32,42 @@ exports.handler = async (event) => {
 
 
             //Status Code = APL
-            if((oldActualArrival==='' || oldActualArrival===null || oldActualArrival.length===0) && (newActualArrival!==null || newActualArrival.length>0 || newActualArrival!=='') && newStopType==='PU'){
+            if((oldActualArrival==='' || oldActualArrival===null) && (newActualArrival!==null || newActualArrival!=='') && newStopType==='PU'){
                 StatusCode = 'APL';
                 const finalPayload = await getPayloadForStopDb(StatusCode, stopId);
                 await updateMilestone(finalPayload)
             }
 
             //status Code = TTC
-            if((oldActualDeparture==='' || oldActualDeparture===null || oldActualDeparture.length===0) && (newActualDeparture!==null || newActualDeparture.length>0 || newActualDeparture!=='') && newStopType==='PU'){
+            if((oldActualDeparture===null || oldActualDeparture==='') && (newActualDeparture!==null  || newActualDeparture!=='') && newStopType==='PU'){
                 StatusCode = 'TTC';
                 const finalPayload = await getPayloadForStopDb(StatusCode, stopId);
                 await updateMilestone(finalPayload)
             }
 
             //status Code = AAD
-            if((oldActualArrival==='' || oldActualArrival===null || oldActualArrival.length===0) && (newActualArrival!==null || newActualArrival.length>0 || newActualArrival!=='') && newStopType==='SO'){
+            if((oldActualArrival==='' || oldActualArrival===null ) && (newActualArrival!==null || newActualArrival!=='') && newStopType==='SO'){
                 StatusCode = 'AAD';
                 const finalPayload = await getPayloadForStopDb(StatusCode, stopId);
                 await updateMilestone(finalPayload)
             }
             
             //status Code = DWP
-            if((oldActualDeparture==='' || oldActualDeparture===null || oldActualDeparture.length===0) && (newActualDeparture!==null || newActualDeparture.length>0 || newActualDeparture!=='') && newStopType==='SO'){
+            if((oldActualDeparture==='' || oldActualDeparture===null) && (newActualDeparture!==null || newActualDeparture!=='') && newStopType==='SO'){
                 StatusCode = 'DWP';
                 const finalPayload = await getPayloadForStopDb(StatusCode, stopId);
                 await updateMilestone(finalPayload)
             }
 
             //status Code = APP
-            if(oldConfirmed!='Y' & newConfirmed==='Y' & newStopType==='PU'){
+            if(oldConfirmed!='Y' && newConfirmed==='Y' && newStopType==='PU'){
                 StatusCode = 'APP';
                 const finalPayload = await getPayloadForStopDb(StatusCode, stopId);
                 await updateMilestone(finalPayload)
             }
 
             //status Code = APD
-            if(oldConfirmed!='Y' & newConfirmed==='Y' & newStopType==='SO'){
+            if(oldConfirmed!='Y' && newConfirmed==='Y' && newStopType==='SO'){
                 StatusCode = 'APD';
                 const finalPayload = await getPayloadForStopDb(StatusCode, stopId);
                 await updateMilestone(finalPayload)
