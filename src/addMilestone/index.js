@@ -6,9 +6,9 @@ const axios = require('axios');
 const sns = new AWS.SNS();
 const { get } = require("lodash");
 const { js2xml } = require('xml-js');
-const { status } = require('express/lib/response');
+const dynamoDb = new AWS.DynamoDB.DocumentClient();
 
-const { ERROR_SNS_TOPIC_ARN, ADD_MILESTONE_TABLE_NAME, WT_SOAP_USERNAME, ADD_MILESTONE_URL} = process.env;
+const { ENVIRONMENT,ERROR_SNS_TOPIC_ARN, ADD_MILESTONE_TABLE_NAME, WT_SOAP_USERNAME, ADD_MILESTONE_URL} = process.env;
 
 let functionName;
 
@@ -51,12 +51,13 @@ module.exports.handler = async (event, context) => {
             console.info("dataResponse", dataResponse);
             itemObj.Reponse = dataResponse;
 
-            await updateStatusTable(itemObj.Housebill, XMLpayLoad, dataResponse)
+            await updateStatusTable(itemObj.Housebill, itemObj.StatusCode,XMLpayLoad, dataResponse)
         }
 
     } catch (error) {
         console.error("Error processing event:", error);
-        await publishSNSTopic({ Id: itemObj.Id, message: error.message });
+        // await publishSNSTopic({ Id: itemObj.Id, message: error.message });
+        throw error;
     }
 };
 
@@ -64,7 +65,7 @@ async function publishSNSTopic({ Id, message}) {
     try {
       const params = {
         TopicArn: ERROR_SNS_TOPIC_ARN,
-        Subject: `PB ADD MILESTONE ERROR NOTIFICATION - ${STAGE} ~ Id: ${Id}`,
+        Subject: `PB ADD MILESTONE ERROR NOTIFICATION - ${ENVIRONMENT} ~ Id: ${Id}`,
         Message: `An error occurred in ${functionName}: ${message}`
       };
   
@@ -141,24 +142,53 @@ async function addMilestoneApi(postData) {
     }
 }
 
-async function updateStatusTable(Housebill, Payload, Response) {
+// async function updateStatusTable(Housebill, Payload, Response) {
+//     try {
+//       const updateParam = {
+//         TableName: 'omni-pb-214-add-milestone-dev',
+//         Key: { Housebill },
+//         UpdateExpression:
+//           'set Payload = :payload, Response = :response, Status = :status, EventDateTime = :eventDateTime',
+//         ExpressionAttributeValues: {
+//           ':payload': String(Payload),
+//           ':response': String(Response),
+//             ':status': "PROCESSED",
+//           ':eventDateTime': moment.tz('America/Chicago').format(),
+//         },
+//       };
+//       console.info('🙂 -> file: index.js:125 -> updateParam:', updateParam);
+//       return await dynamoDb.update(updateParam).promise();
+//     } catch (error) {
+//       console.error('🚀 ~ file: index.js:223 ~ updateStatusTable ~ error:', error);
+//       throw error;
+//     }
+//   }
+
+async function updateStatusTable(Housebill,StatusCode, Payload, Response) {
     try {
       const updateParam = {
         TableName: 'omni-pb-214-add-milestone-dev',
-        Key: { Housebill },
-        UpdateExpression:
-          'set Payload = :payload, Response = :response, Status = :status, EventDateTime = :eventDateTime',
-        ExpressionAttributeValues: {
-          ':payload': String(Payload),
-          ':response': String(Response),
-            ':status': "PROCESSED",
-          ':eventDateTime': moment.tz('America/Chicago').format(),
+        Key: {
+            Housebill, 
+            StatusCode
         },
+        UpdateExpression:
+          'set Payload = :payload, #Response = :response, #Status = :status, EventDateTime = :eventDateTime',
+        ExpressionAttributeNames: {
+          '#Status': 'Status',
+          '#Response': 'Response',
+        },
+        ExpressionAttributeValues: {
+            ':payload': String(Payload),
+            ':response': String(Response),
+              ':status': "PROCESSED",
+            ':eventDateTime': moment.tz('America/Chicago').format(),
+          },
       };
       console.info('🙂 -> file: index.js:125 -> updateParam:', updateParam);
       return await dynamoDb.update(updateParam).promise();
-    } catch (error) {
-      console.error('🚀 ~ file: index.js:223 ~ updateStatusTable ~ error:', error);
-      throw error;
+    } catch (err) {
+      console.error('🙂 -> file: index.js:224 -> err:', err);
+      throw err;
     }
   }
