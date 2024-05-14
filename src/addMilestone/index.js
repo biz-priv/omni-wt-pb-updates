@@ -8,7 +8,7 @@ const { get } = require("lodash");
 const { js2xml } = require('xml-js');
 const { status } = require('express/lib/response');
 
-const { ERROR_SNS_TOPIC_ARN, ADD_MILESTONE_TABLE_NAME, wt_soap_username, ADD_MILESTONE_URL} = process.env;
+const { ERROR_SNS_TOPIC_ARN, ADD_MILESTONE_TABLE_NAME, WT_SOAP_USERNAME, ADD_MILESTONE_URL} = process.env;
 
 let functionName;
 
