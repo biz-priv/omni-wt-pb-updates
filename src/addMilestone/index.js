@@ -142,28 +142,6 @@ async function addMilestoneApi(postData) {
     }
 }
 
-// async function updateStatusTable(Housebill, Payload, Response) {
-//     try {
-//       const updateParam = {
-//         TableName: 'omni-pb-214-add-milestone-dev',
-//         Key: { Housebill },
-//         UpdateExpression:
-//           'set Payload = :payload, Response = :response, Status = :status, EventDateTime = :eventDateTime',
-//         ExpressionAttributeValues: {
-//           ':payload': String(Payload),
-//           ':response': String(Response),
-//             ':status': "PROCESSED",
-//           ':eventDateTime': moment.tz('America/Chicago').format(),
-//         },
-//       };
-//       console.info('🙂 -> file: index.js:125 -> updateParam:', updateParam);
-//       return await dynamoDb.update(updateParam).promise();
-//     } catch (error) {
-//       console.error('🚀 ~ file: index.js:223 ~ updateStatusTable ~ error:', error);
-//       throw error;
-//     }
-//   }
-
 async function updateStatusTable(Housebill,StatusCode, Payload, Response) {
     try {
       const updateParam = {
