@@ -1,0 +1,36 @@
+---
+function:
+  handler: src/addMilestone/index.handler
+  name: omni-pb-rt-test-lambda-${self:provider.stage}
+  description: OMNI PB Real Time Test Lambda - ${self:provider.stage}
+  runtime: nodejs18.x
+  layers:
+    - {Ref: NodeModulesLambdaLayer}
+  timeout: 600
+  package:
+    patterns:
+      - '!**/*'
+      - 'src/addMilestone/index.js'
+      - 'src/shared/dynamo.js'
+ 
+  events:
+      - stream:
+          type: dynamodb
+          arn: "arn:aws:dynamodb:us-east-1:332281781429:table/omni-pb-214-add-milestone-dev/stream/2024-05-09T22:16:02.791"
+          batchSize: 1
+          enabled: true
+          filterPatterns:
+          - { dynamodb: { NewImage: { Status: { S: ['PENDING'] } } } }
+          maximumRetryAttempts: 1   ##chane it back to 3 after testing
+
+  environment:
+    ERROR_SNS_TOPIC_ARN: ${ssm:/omni-pb-rt/${self:provider.stage}/error-notification/arn}
+    ENVIRONMENT: ${self:provider.stage}
+    ORDERS_TABLE_NAME: ${ssm:/omni-pb-rt/${self:provider.stage}/orders/db}
+    MOVEMENT_ORDER_TABLE_NAME: ${ssm:/omni-pb-rt/${self:provider.stage}/movement-order/db}
+    MOVEMENT_TABLE_NAME: ${ssm:/omni-pb-rt/${self:provider.stage}/movement/db}
+    ADD_MILESTONE_TABLE_NAME: ${ssm:/omni-pb-214/${self:provider.stage}/add-milestone/db}
+    ADD_MILESTONE_URL: ${ssm:/omni-ivia/${self:provider.stage}/addMilestone/url}
+    # WT_SOAP_USERNAME: ${ssm:/omni-dw/${self:provider.stage}/wt/soap/username~true}
+    WT_SOAP_USERNAME: 'apiuser'
+

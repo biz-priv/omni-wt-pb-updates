@@ -21,7 +21,7 @@ custom:
   region: ${opt:region, 'us-east-1'}
   stage: ${opt:stage, 'dev'}
   tags:
-    Application: DataPipeline
+    Application: WT-PB Integration
     CreateBy: BizCloudExperts
     Environment: ${self:custom.stage}
 
@@ -44,5 +44,6 @@ package:
 functions:
   omni-pb-rt-movement-stream: ${file(config/functions/omni-pb-rt-movement-stream.yml):function}
   omni-pb-rt-stop-db-stream: ${file(config/functions/omni-pb-rt-stop-db-stream.yml):function}
+  test-lambda: ${file(config/functions/omni-pb-rt-test.yml):function}
 
 
