@@ -43,6 +43,6 @@ package:
 
 functions:
   omni-pb-rt-movement-stream: ${file(config/functions/omni-pb-rt-movement-stream.yml):function}
-  test-lambda: ${file(config/functions/omni-pb-rt-test.yml):function}
+  add-milestone: ${file(config/functions/omni-pb-rt-add-milestone.yml):function}
 
 

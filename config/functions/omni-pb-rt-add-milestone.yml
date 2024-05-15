@@ -1,8 +1,8 @@
 ---
 function:
   handler: src/addMilestone/index.handler
-  name: omni-pb-rt-test-lambda-${self:provider.stage}
-  description: OMNI PB Real Time Test Lambda - ${self:provider.stage}
+  name: omni-pb-rt-add-milestone-${self:provider.stage}
+  description: OMNI PB Real Time Add Milestone- ${self:provider.stage}
   runtime: nodejs18.x
   layers:
     - {Ref: NodeModulesLambdaLayer}
@@ -20,7 +20,7 @@ function:
           batchSize: 1
           enabled: true
           filterPatterns:
-          - { dynamodb: { NewImage: { Status: { S: ['PENDING'] } } } }
+          - { dynamodb: { NewImage: { Status: { S: ['READY'] } } } }
           maximumRetryAttempts: 1   ##chane it back to 3 after testing
 
   environment:
