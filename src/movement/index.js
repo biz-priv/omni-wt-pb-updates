@@ -52,7 +52,7 @@ module.exports.handler = async (event,context) => {
                     Payload: '',
                     Response: '',
                     ErrorMessage: '',
-                    Status: 'PENDING'
+                    Status: 'READY'
                 };
 
                 console.info(finalPayload);

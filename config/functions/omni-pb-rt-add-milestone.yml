@@ -20,7 +20,7 @@ function:
           batchSize: 1
           enabled: true
           filterPatterns:
-          - { dynamodb: { NewImage: { Status: { S: ['PENDING'] } } } }
+          - { dynamodb: { NewImage: { Status: { S: ['READY'] } } } }
           maximumRetryAttempts: 1   ##chane it back to 3 after testing
 
   environment:
