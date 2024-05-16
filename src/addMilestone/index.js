@@ -14,6 +14,7 @@ let functionName;
 
 let itemObj = {
     Id:"",
+    OrderId:"",
     Housebill: "",
     StatusCode: "",
     EventDateTime: "",
@@ -32,11 +33,12 @@ module.exports.handler = async (event, context) => {
             const newUnmarshalledRecord = AWS.DynamoDB.Converter.unmarshall(record.dynamodb.NewImage);
 
             itemObj.Id = _.get(newUnmarshalledRecord, "Id");
+            itemObj.OrderId = _.get(newUnmarshalledRecord, "OrderId");
             itemObj.Housebill = _.get(newUnmarshalledRecord, "Housebill");
             itemObj.StatusCode = _.get(newUnmarshalledRecord, "StatusCode");
             itemObj.EventDateTime = moment.tz('America/Chicago').format(); 
             itemObj.Payload = JSON.stringify({
-                Id: itemObj.Id,
+                Id: itemObj.OrderId,
                 Housebill: itemObj.Housebill,
                 StatusCode: itemObj.StatusCode,
                 EventDateTime: itemObj.EventDateTime
