@@ -67,19 +67,10 @@ module.exports.handler = async (event, context) => {
                 await updateStatusTable(itemObj.Housebill, itemObj.StatusCode, "SKIPPED", '', '');
                 console.info("Skipping the record as the Shipment is not available in 204")
             }
-            // const XMLpayLoad = await makeJsonToXml(itemObj)
-            // console.info("XML Payload Generated :",XMLpayLoad)
-
-            // const dataResponse = await addMilestoneApi(XMLpayLoad);
-            // console.info("dataResponse", dataResponse);
-            // itemObj.Reponse = dataResponse;
-
-            // await updateStatusTable(itemObj.Housebill, itemObj.StatusCode,"SKIPPED", XMLpayLoad, dataResponse);
         }
 
     } catch (error) {
         console.error("Error processing event:", error);
-        // await publishSNSTopic({ Id: itemObj.Id, message: error.message });
         await updateStatusTable(itemObj.Housebill, itemObj.StatusCode, "FAILED", XMLpayLoad, dataResponse, error.message);
         throw error;
     }

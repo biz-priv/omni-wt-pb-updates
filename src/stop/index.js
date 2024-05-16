@@ -53,11 +53,11 @@ exports.handler = async (event) => {
             }
             
             //status Code = DWP
-            if((oldActualDeparture==='' || oldActualDeparture===null) && (newActualDeparture!==null || newActualDeparture!=='') && newStopType==='SO'){
-                StatusCode = 'DWP';
-                const finalPayload = await getPayloadForStopDb(StatusCode, stopId);
-                await updateMilestone(finalPayload)
-            }
+            // if((oldActualDeparture==='' || oldActualDeparture===null) && (newActualDeparture!==null || newActualDeparture!=='') && newStopType==='SO'){
+            //     StatusCode = 'DWP';
+            //     const finalPayload = await getPayloadForStopDb(StatusCode, stopId);
+            //     await updateMilestone(finalPayload)
+            // }
 
             //status Code = APP
             if(oldConfirmed!='Y' && newConfirmed==='Y' && newStopType==='PU'){
@@ -80,11 +80,16 @@ exports.handler = async (event) => {
         console.error('Error in handler:', error);
         // id, statuscode, housebill, eventdatetime, sattus,
         await updateMilestone({
-            stopId ,
+            Id: stopId ,
             EventDateTime: moment.tz('America/Chicago').format(),
             Housebill: Housebill.toString(),
             ErrorMessage: error.message,
             StatusCode: 'FAILED'
+          });
+          //add sns here
+          await publishSNSTopic({
+            message: `Error processing StopId: ${stopId}, ${error.message}. \n Please check the error meesage in DynamoDb Table ${ADD_MILESTONE_TABLE_NAME} for complete error`,
+            stopId
           });
         throw error
     }
@@ -104,7 +109,7 @@ async function getPayloadForStopDb(StatusCode, stopId){
             Payload: '',
             Response: '',
             ErrorMessage: '',
-            Status: 'PENDING'
+            Status: 'READY'
         };
 
         console.info("Payload for add milestone:", finalPayload);
@@ -115,3 +120,18 @@ async function getPayloadForStopDb(StatusCode, stopId){
         throw error
     }
 }
+
+async function publishSNSTopic({ Id, message}) {
+    try {
+      const params = {
+        TopicArn: ERROR_SNS_TOPIC_ARN,
+        Subject: `PB ADD MILESTONE ERROR NOTIFICATION - ${STAGE} ~ Id: ${Id}`,
+        Message: `An error occurred in ${functionName}: ${message}`
+      };
+  
+      await sns.publish(params).promise();
+    } catch (error) {
+      console.error('Error publishing to SNS topic:', error);
+      throw error;
+    }
+  }

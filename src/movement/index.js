@@ -84,6 +84,9 @@ module.exports.handler = async (event,context) => {
                 await updateMilestone(finalPayload)
 
             }
+
+            // check for DWP
+
         });
 
         await Promise.all(promises);
