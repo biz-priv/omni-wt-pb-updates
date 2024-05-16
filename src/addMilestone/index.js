@@ -64,14 +64,9 @@ module.exports.handler = async (event, context) => {
                 await updateStatusTable(itemObj.Housebill, itemObj.StatusCode, "SENT", XMLpayLoad, dataResponse)
                 
             } else {
-                await updateStatusTable(itemObj.Housebill, itemObj.StatusCode, "SKIPPED", XMLpayLoad, dataResponse);
+                await updateStatusTable(itemObj.Housebill, itemObj.StatusCode, "SKIPPED", '', '');
                 console.info("Skipping the record as the Shipment is not available in 204")
             }
-
-
-
-
-
             // const XMLpayLoad = await makeJsonToXml(itemObj)
             // console.info("XML Payload Generated :",XMLpayLoad)
 
