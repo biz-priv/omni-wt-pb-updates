@@ -70,6 +70,7 @@ module.exports.handler = async (event,context) => {
 
                 const finalPayload = {
                     Id,
+                    OrderId: order_id,
                     StatusCode,
                     Housebill: Housebill.toString(),
                     EventDateTime: moment.tz('America/Chicago').format(),
