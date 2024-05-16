@@ -119,9 +119,36 @@ async function getMovement(id){
     }
 }
 
+async function getLive204OrderStatus(Housebill) {
+    const params = {
+        TableName: 'live-204-order-status-dev',
+        IndexName: 'Housebill-index',
+        KeyConditionExpression: 'Housebill = :Housebill',
+        ExpressionAttributeValues: {
+            ':Housebill': Housebill
+        }
+    };
+
+    console.log('Fetching data from:', params.TableName);
+
+    try {
+        const items = await query(params);
+
+        if (items.length > 0) {
+            return items[0];
+        } else {
+            throw new Error('No Record found in 204 Orders Dynamo Table for Housebill:', Housebill);
+        }
+    } catch (error) {
+        console.error('Error in getLive204OrderStatus function:', error);
+        throw error;
+    }
+}
+
 module.exports = {
     getMovementOrder,
     getOrder,
     updateMilestone,
-    getMovement
+    getMovement,
+    getLive204OrderStatus
 };

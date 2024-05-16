@@ -1,6 +1,6 @@
 const AWS = require('aws-sdk');
 const _ = require('lodash');
-const { getMovementOrder,getOrder,updateMilestone} = require('../shared/dynamo');
+const { getMovementOrder,getOrder,updateMilestone,getLive204OrderStatus} = require('../shared/dynamo');
 const moment = require('moment-timezone');
 const axios = require('axios');
 const sns = new AWS.SNS();
@@ -45,6 +45,11 @@ module.exports.handler = async (event, context) => {
             });
 
             console.info('Processed Item:', itemObj);
+
+            const validationData = await getLive204OrderStatus(itemObj.Housebill)
+            console.info("Data Coming from 204 Dynamo Table:", validationData)
+            
+
 
             const XMLpayLoad = await makeJsonToXml(itemObj)
             console.info("XML Payload Generated :",XMLpayLoad)
