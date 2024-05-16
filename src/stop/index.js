@@ -97,7 +97,7 @@ async function getPayloadForStopDb(StatusCode, stopId){
         const Housebill  = await getOrder(order_id);
 
         const finalPayload = {
-            movementId,
+            OrderId: order_id,
             StatusCode,
             Housebill: Housebill.toString(),
             EventDateTime: moment.tz('America/Chicago').format(),
