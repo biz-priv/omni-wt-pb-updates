@@ -48,17 +48,38 @@ module.exports.handler = async (event, context) => {
 
             const validationData = await getLive204OrderStatus(itemObj.Housebill)
             console.info("Data Coming from 204 Dynamo Table:", validationData)
-            
+
+            const ShipmentId = _.get(validationData, "ShipmentId","");
+            const Status204 = _.get(validationData, "Status","");
+
+            if (ShipmentId === itemObj.OrderId && Status204 === "SENT") {
+
+                const XMLpayLoad = await makeJsonToXml(itemObj)
+                console.info("XML Payload Generated :",XMLpayLoad)
+
+                const dataResponse = await addMilestoneApi(XMLpayLoad);
+                console.info("dataResponse", dataResponse);
+                itemObj.Reponse = dataResponse;
+
+                await updateStatusTable(itemObj.Housebill, itemObj.StatusCode, "SENT", XMLpayLoad, dataResponse)
+                
+            } else {
+                await updateStatusTable(itemObj.Housebill, itemObj.StatusCode, "SKIPPED", XMLpayLoad, dataResponse);
+                console.info("Skipping the record as the Shipment is not available in 204")
+            }
 
 
-            const XMLpayLoad = await makeJsonToXml(itemObj)
-            console.info("XML Payload Generated :",XMLpayLoad)
 
-            const dataResponse = await addMilestoneApi(XMLpayLoad);
-            console.info("dataResponse", dataResponse);
-            itemObj.Reponse = dataResponse;
 
-            await updateStatusTable(itemObj.Housebill, itemObj.StatusCode,XMLpayLoad, dataResponse)
+
+            // const XMLpayLoad = await makeJsonToXml(itemObj)
+            // console.info("XML Payload Generated :",XMLpayLoad)
+
+            // const dataResponse = await addMilestoneApi(XMLpayLoad);
+            // console.info("dataResponse", dataResponse);
+            // itemObj.Reponse = dataResponse;
+
+            // await updateStatusTable(itemObj.Housebill, itemObj.StatusCode,"SKIPPED", XMLpayLoad, dataResponse);
         }
 
     } catch (error) {
@@ -149,7 +170,7 @@ async function addMilestoneApi(postData) {
     }
 }
 
-async function updateStatusTable(Housebill,StatusCode, Payload, Response) {
+async function updateStatusTable(Housebill,StatusCode,apiStatus, Payload, Response) {
     try {
       const updateParam = {
         TableName: 'omni-pb-214-add-milestone-dev',
@@ -166,7 +187,7 @@ async function updateStatusTable(Housebill,StatusCode, Payload, Response) {
         ExpressionAttributeValues: {
             ':payload': String(Payload),
             ':response': String(Response),
-              ':status': "SENT",
+              ':status': apiStatus,
             ':eventDateTime': moment.tz('America/Chicago').format(),
           },
       };
