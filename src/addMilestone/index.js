@@ -85,6 +85,7 @@ module.exports.handler = async (event, context) => {
     } catch (error) {
         console.error("Error processing event:", error);
         // await publishSNSTopic({ Id: itemObj.Id, message: error.message });
+        await updateStatusTable(itemObj.Housebill, itemObj.StatusCode, "FAILED", XMLpayLoad, dataResponse, error.message);
         throw error;
     }
 };
@@ -170,7 +171,7 @@ async function addMilestoneApi(postData) {
     }
 }
 
-async function updateStatusTable(Housebill,StatusCode,apiStatus, Payload, Response) {
+async function updateStatusTable(Housebill,StatusCode,apiStatus, Payload = "", Response = "", ErrorMessage = "") {
     try {
       const updateParam = {
         TableName: 'omni-pb-214-add-milestone-dev',
@@ -179,7 +180,7 @@ async function updateStatusTable(Housebill,StatusCode,apiStatus, Payload, Respon
             StatusCode
         },
         UpdateExpression:
-          'set Payload = :payload, #Response = :response, #Status = :status, EventDateTime = :eventDateTime',
+          'set Payload = :payload, #Response = :response, #Status = :status, EventDateTime = :eventDateTime, ErrorMessage = :errorMessage',
         ExpressionAttributeNames: {
           '#Status': 'Status',
           '#Response': 'Response',
@@ -187,8 +188,9 @@ async function updateStatusTable(Housebill,StatusCode,apiStatus, Payload, Respon
         ExpressionAttributeValues: {
             ':payload': String(Payload),
             ':response': String(Response),
-              ':status': apiStatus,
+            ':status': apiStatus,
             ':eventDateTime': moment.tz('America/Chicago').format(),
+            ':errorMessage' : ErrorMessage,
           },
       };
       console.info('🙂 -> file: index.js:125 -> updateParam:', updateParam);
