@@ -161,7 +161,7 @@ async function updateStatusTable(Housebill,StatusCode, Payload, Response) {
         ExpressionAttributeValues: {
             ':payload': String(Payload),
             ':response': String(Response),
-              ':status': "PROCESSED",
+              ':status': "SENT",
             ':eventDateTime': moment.tz('America/Chicago').format(),
           },
       };
