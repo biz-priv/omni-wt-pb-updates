@@ -45,7 +45,6 @@ module.exports.handler = async (event,context) => {
                 Housebill  = await getOrder(order_id);
 
                 const finalPayload = {
-                    Id ,
                     OrderId: order_id,
                     StatusCode,
                     Housebill: Housebill.toString(),
@@ -69,7 +68,6 @@ module.exports.handler = async (event,context) => {
                 const Housebill  = await getOrder(order_id);
 
                 const finalPayload = {
-                    Id,
                     OrderId: order_id,
                     StatusCode,
                     Housebill: Housebill.toString(),
@@ -94,7 +92,6 @@ module.exports.handler = async (event,context) => {
         console.error('Error in handler:', error);
         
         await updateMilestone({
-            Id ,
             EventDateTime: moment.tz('America/Chicago').format(),
             Housebill: Housebill.toString(),
             ErrorMessage: error.message,
@@ -102,18 +99,18 @@ module.exports.handler = async (event,context) => {
           });
         
           await publishSNSTopic({
-            message: `Error processing Id: ${Id}, ${e.message}. \n Please check the error meesage in DynamoDb Table ${ADD_MILESTONE_TABLE_NAME} for complete error`,
+            message: `Error processing Housebill: ${Housebill}, ${e.message}. \n Please check the error meesage in DynamoDb Table ${ADD_MILESTONE_TABLE_NAME} for complete error`,
             Id
           });
         throw error
     }
 };
 
-async function publishSNSTopic({ Id, message}) {
+async function publishSNSTopic({ Housebill, message}) {
     try {
       const params = {
         TopicArn: ERROR_SNS_TOPIC_ARN,
-        Subject: `PB ADD MILESTONE ERROR NOTIFICATION - ${STAGE} ~ Id: ${Id}`,
+        Subject: `PB ADD MILESTONE ERROR NOTIFICATION - ${STAGE} ~ Housebill: ${Housebill}`,
         Message: `An error occurred in ${functionName}: ${message}`
       };
   
