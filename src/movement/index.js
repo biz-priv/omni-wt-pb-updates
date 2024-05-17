@@ -95,7 +95,7 @@ module.exports.handler = async (event,context) => {
                 };
               }
 
-            const podStatus = await lookForPod(movementId);
+            const podStatus = await checkForPod(movementId);
 
             let resultMessage;
 
@@ -107,24 +107,24 @@ module.exports.handler = async (event,context) => {
               StatusCode = 'DWP';
           }
 
-          console.info('WT status code Available is:',StatusCode)
+          console.info('WT status code :',StatusCode)
 
-          // const order_id  = await getMovementOrder(Id);
-          // const Housebill  = await getOrder(order_id);
+          const order_id  = await getMovementOrder(Id);
+          const Housebill  = await getOrder(order_id);
 
-          //     const finalPayload = {
-          //         OrderId: order_id,
-          //         StatusCode,
-          //         Housebill: Housebill.toString(),
-          //         EventDateTime: moment.tz('America/Chicago').format(),
-          //         Payload: '',
-          //         Response: '',
-          //         ErrorMessage: '',
-          //         Status: 'READY'
-          //     };
+              const finalPayload = {
+                  OrderId: order_id,
+                  StatusCode,
+                  Housebill: Housebill.toString(),
+                  EventDateTime: moment.tz('America/Chicago').format(),
+                  Payload: '',
+                  Response: '',
+                  ErrorMessage: '',
+                  Status: 'READY'
+              };
 
-          //     console.info(finalPayload);
-          //     await updateMilestone(finalPayload)
+              console.info(finalPayload);
+              await updateMilestone(finalPayload)
 
             }
 
@@ -164,7 +164,7 @@ async function publishSNSTopic({ Housebill, message}) {
     }
   }
 
-async function lookForPod(movementId) {
+async function checkForPod(movementId) {
       const username = "apiuser";
       const password = "lvlpapiuser";
       const mcleodHeaders = {
