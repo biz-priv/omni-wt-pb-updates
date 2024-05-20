@@ -2,7 +2,7 @@ const AWS = require('aws-sdk');
 const dynamoDB = new AWS.DynamoDB.DocumentClient();
 const _ = require('lodash');
 
-const { ORDERS_TABLE_NAME, MOVEMENT_ORDER_TABLE_NAME, ADD_MILESTONE_TABLE_NAME } = process.env;
+const { ORDERS_TABLE_NAME, MOVEMENT_ORDER_TABLE_NAME, ADD_MILESTONE_TABLE_NAME, ORDER_STATUS_TABLE_NAME,CONSOL_STATUS_TABLE_NAME } = process.env;
 
 async function query(params) {
     async function helper(params) {
@@ -145,10 +145,60 @@ async function getLive204OrderStatus(Housebill) {
     }
 }
 
+async function getOrderStatus(id) {
+    const orderStatusParams = {
+        TableName: ORDER_STATUS_TABLE_NAME,
+        IndexName: 'ShipmentId-index',
+        KeyConditionExpression: 'ShipmentId = :ShipmentId',
+        ExpressionAttributeValues: {
+            ':ShipmentId': id
+        }
+    };
+
+    try {
+        const items = await query(orderStatusParams);
+
+        if (items.length > 0) {
+            return items[0];
+        } else {
+            throw new Error('No Record found in Order Status Dynamo Table for MovementId:', id);
+        }
+    } catch (error) {
+        console.error('Error in getMovementOrder function:', error);
+        throw error;
+    }
+}
+
+async function getConsolStatus(id) {
+    const consolStatusParams = {
+        TableName: CONSOL_STATUS_TABLE_NAME,
+        IndexName: 'ShipmentId-index',
+        KeyConditionExpression: 'ShipmentId = :ShipmentId',
+        ExpressionAttributeValues: {
+            ':ShipmentId': id
+        }
+    };
+
+    try {
+        const items = await query(consolStatusParams);
+
+        if (items.length > 0) {
+            return items[0];
+        } else {
+            throw new Error('No Record found in Consol Status Dynamo Table for MovementId:', id);
+        }
+    } catch (error) {
+        console.error('Error in getMovementOrder function:', error);
+        throw error;
+    }
+}
+
 module.exports = {
     getMovementOrder,
     getOrder,
     updateMilestone,
     getMovement,
-    getLive204OrderStatus
+    getLive204OrderStatus,
+    getOrderStatus,
+    getConsolStatus
 };

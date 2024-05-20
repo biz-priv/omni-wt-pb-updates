@@ -46,27 +46,48 @@ module.exports.handler = async (event, context) => {
 
             console.info('Processed Item:', itemObj);
 
-            const validationData = await getLive204OrderStatus(itemObj.Housebill)
-            console.info("Data Coming from 204 Dynamo Table:", validationData)
+            console.info('OrderId coming from Event:', OrderId)
 
-            const ShipmentId = _.get(validationData, "ShipmentId","");
-            const Status204 = _.get(validationData, "Status","");
+            const validationData = await getOrderStatus(itemObj.OrderId)
+            console.info("Data Coming from 204 Order Status Table:", validationData)
 
-            if (ShipmentId === itemObj.OrderId && Status204 === "SENT") {
+            const type = _.get(validationData, "Type","");
 
-                const XMLpayLoad = await makeJsonToXml(itemObj)
-                console.info("XML Payload Generated :",XMLpayLoad)
-
-                const dataResponse = await addMilestoneApi(XMLpayLoad);
-                console.info("dataResponse", dataResponse);
-                itemObj.Reponse = dataResponse;
-
-                await updateStatusTable(itemObj.Housebill, itemObj.StatusCode, "SENT", XMLpayLoad, dataResponse)
-                
-            } else {
-                await updateStatusTable(itemObj.Housebill, itemObj.StatusCode, "SKIPPED", '', '');
-                console.info("Skipping the record as the Shipment is not available in 204")
+            if (type === NON_CONSOLE) {
+                console.info('Type is notconsole')
             }
+
+            if (type === CONSOLE) {
+                console.info('Type is notconsole')
+            } else {
+                console.info('Type is Multistop')
+                
+            }
+
+
+
+
+            // const validationData = await getLive204OrderStatus(itemObj.Housebill)
+            // console.info("Data Coming from 204 Dynamo Table:", validationData)
+
+            // const ShipmentId = _.get(validationData, "ShipmentId","");
+            // const Status204 = _.get(validationData, "Status","");
+
+            // if (ShipmentId === itemObj.OrderId && Status204 === "SENT") {
+
+            //     const XMLpayLoad = await makeJsonToXml(itemObj)
+            //     console.info("XML Payload Generated :",XMLpayLoad)
+
+            //     const dataResponse = await addMilestoneApi(XMLpayLoad);
+            //     console.info("dataResponse", dataResponse);
+            //     itemObj.Reponse = dataResponse;
+
+            //     await updateStatusTable(itemObj.Housebill, itemObj.StatusCode, "SENT", XMLpayLoad, dataResponse)
+                
+            // } else {
+            //     await updateStatusTable(itemObj.Housebill, itemObj.StatusCode, "SKIPPED", '', '');
+            //     console.info("Skipping the record as the Shipment is not available in 204")
+            // }
         }
 
     } catch (error) {

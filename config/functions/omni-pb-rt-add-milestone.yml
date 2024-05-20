@@ -30,6 +30,8 @@ function:
     MOVEMENT_ORDER_TABLE_NAME: ${ssm:/omni-pb-rt/${self:provider.stage}/movement-order/db}
     MOVEMENT_TABLE_NAME: ${ssm:/omni-pb-rt/${self:provider.stage}/movement/db}
     ADD_MILESTONE_TABLE_NAME: ${ssm:/omni-pb-214/${self:provider.stage}/add-milestone/db}
+    ORDER_STATUS_TABLE_NAME: 'live-204-order-status-dev'
+    CONSOL_STATUS_TABLE_NAME: 'live-204-consol-status-dev'
     ADD_MILESTONE_URL: ${ssm:/omni-ivia/${self:provider.stage}/addMilestone/url}
     # WT_SOAP_USERNAME: ${ssm:/omni-dw/${self:provider.stage}/wt/soap/username~true}
     WT_SOAP_USERNAME: 'apiuser'
