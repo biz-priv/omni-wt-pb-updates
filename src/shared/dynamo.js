@@ -110,8 +110,8 @@ async function getMovement(id){
 
     try {
         const result = await query(movementParams);
-        const items = _.get(result, 'Items', []);
-        return _.get(items[0], 'id', '');
+        console.log(result);
+        return _.get(result[0], 'id', '');
 
     } catch (error) {
         console.error('Error in getMovement function:', error);

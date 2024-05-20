@@ -3,6 +3,7 @@ const _ = require('lodash');
 const { getMovementOrder,getOrder,updateMilestone, getMovement} = require('../shared/dynamo');
 const moment = require('moment-timezone');
 
+
 exports.handler = async (event) => {
 
     let stopId;
@@ -17,18 +18,18 @@ exports.handler = async (event) => {
             const newUnmarshalledRecord = AWS.DynamoDB.Converter.unmarshall(record.dynamodb.NewImage);
             const oldUnmarshalledRecord = AWS.DynamoDB.Converter.unmarshall(record.dynamodb.OldImage);
 
-            stopId = _.get(newUnmarshalledRecord, 'id');
+            stopId = _.get(newUnmarshalledRecord, 'id', '');
             console.info('id coming from stop table:', stopId);
 
-            const oldActualArrival = _.get(oldUnmarshalledRecord, 'actual_arrival');
-            const newActualArrival = _.get(newUnmarshalledRecord, 'actual_arrival');
-            const newStopType = _.get(newUnmarshalledRecord, 'stop_type');
+            const oldActualArrival = _.get(oldUnmarshalledRecord, 'actual_arrival', '');
+            const newActualArrival = _.get(newUnmarshalledRecord, 'actual_arrival', '');
+            const newStopType = _.get(newUnmarshalledRecord, 'stop_type', '');
 
-            const oldActualDeparture = _.get(oldUnmarshalledRecord, 'actual_departure');
-            const newActualDeparture = _.get(newUnmarshalledRecord, 'actual_departure');
+            const oldActualDeparture = _.get(oldUnmarshalledRecord, 'actual_departure', '');
+            const newActualDeparture = _.get(newUnmarshalledRecord, 'actual_departure', '');
 
-            const oldConfirmed = _.get(oldUnmarshalledRecord, 'confirmed');
-            const newConfirmed = _.get(newUnmarshalledRecord, 'confirmed');
+            const oldConfirmed = _.get(oldUnmarshalledRecord, 'confirmed', '');
+            const newConfirmed = _.get(newUnmarshalledRecord, 'confirmed', '');
 
 
             //Status Code = APL
