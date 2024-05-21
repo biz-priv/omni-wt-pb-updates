@@ -161,7 +161,7 @@ async function getOrderStatus(id) {
         if (items.length > 0) {
             return items[0];
         } else {
-            throw new Error('No Record found in Order Status Dynamo Table for MovementId:', id);
+            console.info('No Record found in Order Status Dynamo Table for MovementId:', id);
         }
     } catch (error) {
         console.error('Error in getMovementOrder function:', error);
@@ -185,7 +185,7 @@ async function getConsolStatus(id) {
         if (items.length > 0) {
             return items[0];
         } else {
-            throw new Error('No Record found in Consol Status Dynamo Table for MovementId:', id);
+            console.info('No Record found in Consol Status Dynamo Table for MovementId:', id);
         }
     } catch (error) {
         console.error('Error in getMovementOrder function:', error);
