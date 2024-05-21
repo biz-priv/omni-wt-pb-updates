@@ -8,7 +8,7 @@ const { get } = require("lodash");
 const { js2xml } = require('xml-js');
 const dynamoDb = new AWS.DynamoDB.DocumentClient();
 
-const { ENVIRONMENT,ERROR_SNS_TOPIC_ARN, ADD_MILESTONE_TABLE_NAME, WT_SOAP_USERNAME, ADD_MILESTONE_URL} = process.env;
+const { ENVIRONMENT,ERROR_SNS_TOPIC_ARN, ADD_MILESTONE_TABLE_NAME, WT_SOAP_USERNAME, ADD_MILESTONE_URL,ADD_MILESTONE_URL_2} = process.env;
 
 let functionName;
 
@@ -62,7 +62,7 @@ module.exports.handler = async (event, context) => {
                 const XMLpayLoad = await makeJsonToXml1(itemObj)
                 console.info("XML Payload Generated :",XMLpayLoad)
 
-                const dataResponse = await addMilestoneApi(XMLpayLoad);
+                const dataResponse = await addMilestoneApi1(XMLpayLoad);
                 console.info("dataResponse", dataResponse);
                 itemObj.Reponse = dataResponse;
 
@@ -76,7 +76,7 @@ module.exports.handler = async (event, context) => {
                 const XMLpayLoad = await makeJsonToXml2(itemObj)
                 console.info("XML Payload Generated :",XMLpayLoad)
 
-                const dataResponse = await addMilestoneApi(XMLpayLoad);
+                const dataResponse = await addMilestoneApi2(XMLpayLoad);
                 console.info("dataResponse", dataResponse);
                 itemObj.Reponse = dataResponse;
 
@@ -95,15 +95,13 @@ module.exports.handler = async (event, context) => {
                 const XMLpayLoad = await makeJsonToXml3(itemObj)
                 console.info("XML Payload Generated :",XMLpayLoad)
 
-                const dataResponse = await addMilestoneApi(XMLpayLoad);
+                const dataResponse = await addMilestoneApi2(XMLpayLoad);
                 console.info("dataResponse", dataResponse);
                 itemObj.Reponse = dataResponse;
 
                 await updateStatusTable(itemObj.ConsolNo, itemObj.StatusCode, "SENT", XMLpayLoad, dataResponse)
 
             }
-
-
             // const validationData = await getLive204OrderStatus(itemObj.Housebill)
             // console.info("Data Coming from 204 Dynamo Table:", validationData)
 
@@ -242,7 +240,7 @@ async function makeJsonToXml3(itemObj) {
     }
 }
 
-async function addMilestoneApi(postData) {
+async function addMilestoneApi1(postData) {
     try {
 
         const config = {
@@ -254,7 +252,42 @@ async function addMilestoneApi(postData) {
             data: postData
         };
 
-        config.url = `${process.env.ADD_MILESTONE_URL}?op=UpdateStatus`;     
+        config.url = `${ADD_MILESTONE_URL}?op=UpdateStatus`;     
+
+        console.log("config: ", config)
+        const res = await axios.request(config);
+        if (get(res, "status", "") == 200) {
+            return get(res, "data", "");
+        } else {
+            itemObj.xmlResponsePayload = get(res, "data", "");
+            throw new Error(`API Request Failed: ${res}`);
+        }
+    } catch (error) {
+        const response = error.response;
+        console.error("Error in addMilestoneApi", {
+            message: error.message,
+            response: {
+                status: response?.status,
+                data: response?.data
+            }
+        });
+        throw error; 
+    }
+}
+
+async function addMilestoneApi2(postData) {
+    try {
+
+        const config = {
+            method: 'post',
+            headers: {
+                'Accept': 'text/xml',
+                'Content-Type': 'text/xml'
+            },
+            data: postData
+        };
+
+        config.url = `${ADD_MILESTONE_URL_2}?op=UpdateStatus`;     
 
         console.log("config: ", config)
         const res = await axios.request(config);
