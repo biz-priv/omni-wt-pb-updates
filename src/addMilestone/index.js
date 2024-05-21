@@ -22,7 +22,8 @@ let itemObj = {
     Reponse: "",
     ErrorMessage: "",
     Status: "",
-    FK_OrderNo:""
+    FK_OrderNo:"",
+    ConsolNo: ""
 }
 
 module.exports.handler = async (event, context) => {
@@ -55,7 +56,7 @@ module.exports.handler = async (event, context) => {
             const type = _.get(validationData, "Type","");
             const FK_OrderNo = _.get(validationData, "FK_OrderNo","");
 
-            if (type === NON_CONSOLE) {
+            if (type === "NON_CONSOLE") {
                 console.info('Type is notconsole')
 
                 const XMLpayLoad = await makeJsonToXml1(itemObj)
@@ -68,7 +69,7 @@ module.exports.handler = async (event, context) => {
                 await updateStatusTable(itemObj.Housebill, itemObj.StatusCode, "SENT", XMLpayLoad, dataResponse)
             }
 
-            if (type === CONSOLE) {
+            if (type === "CONSOLE") {
 
                 console.info('Type is console')
 
@@ -80,8 +81,6 @@ module.exports.handler = async (event, context) => {
                 itemObj.Reponse = dataResponse;
 
                 await updateStatusTable(FK_OrderNo, itemObj.StatusCode, "SENT", XMLpayLoad, dataResponse)
-
-                
             } 
             
             else {
@@ -91,7 +90,7 @@ module.exports.handler = async (event, context) => {
                 const validationData1 = await getConsolStatus(itemObj.OrderId)
                 console.info("Data Coming from 204 Consol Status Table:", validationData1)
 
-                const ConsolNo = _.get(validationData1, "ConsolNo", "")
+                itemObj.ConsolNo = _.get(validationData1, "ConsolNo", "")
 
                 const XMLpayLoad = await makeJsonToXml3(itemObj)
                 console.info("XML Payload Generated :",XMLpayLoad)
@@ -100,7 +99,7 @@ module.exports.handler = async (event, context) => {
                 console.info("dataResponse", dataResponse);
                 itemObj.Reponse = dataResponse;
 
-                await updateStatusTable(ConsolNo, itemObj.StatusCode, "SENT", XMLpayLoad, dataResponse)
+                await updateStatusTable(itemObj.ConsolNo, itemObj.StatusCode, "SENT", XMLpayLoad, dataResponse)
 
             }
 
@@ -191,7 +190,7 @@ async function makeJsonToXml2(itemObj) {
                     "xmlns:soap": "http://schemas.xmlsoap.org/soap/envelope/"
                 },
                 "soap:Body": {
-                    UpdateStatus: {
+                    UpdateStatusByConsolNo: {
                         "_attributes": {
                             "xmlns": "http://tempuri.org/"
                         },
@@ -222,7 +221,7 @@ async function makeJsonToXml3(itemObj) {
                     "xmlns:soap": "http://schemas.xmlsoap.org/soap/envelope/"
                 },
                 "soap:Body": {
-                    UpdateStatus: {
+                    UpdateStatusByConsolNo: {
                         "_attributes": {
                             "xmlns": "http://tempuri.org/"
                         },
