@@ -29,6 +29,8 @@ let itemObj = {
 module.exports.handler = async (event, context) => {
     console.info("Test lambda has been triggered on Dynamo Trigger With Filter Expression.");
 
+    let XMLpayLoad;
+
     try {
         const records = _.get(event, 'Records', []);
         for (const record of records) {
@@ -48,7 +50,7 @@ module.exports.handler = async (event, context) => {
 
             console.info('Processed Item:', itemObj);
 
-            console.info('OrderId coming from Event:', OrderId)
+            console.info('OrderId coming from Event:', itemObj.OrderId)
 
             const validationData = await getOrderStatus(itemObj.OrderId)
             console.info("Data Coming from 204 Order Status Table:", validationData)
@@ -59,7 +61,7 @@ module.exports.handler = async (event, context) => {
             if (type === "NON_CONSOLE") {
                 console.info('Type is notconsole')
 
-                const XMLpayLoad = await makeJsonToXml1(itemObj)
+                XMLpayLoad = await makeJsonToXml1(itemObj)
                 console.info("XML Payload Generated :",XMLpayLoad)
 
                 const dataResponse = await addMilestoneApi1(XMLpayLoad);
@@ -69,11 +71,11 @@ module.exports.handler = async (event, context) => {
                 await updateStatusTable(itemObj.Housebill, itemObj.StatusCode, "SENT", XMLpayLoad, dataResponse)
             }
 
-            if (type === "CONSOLE") {
+            else if (type === "CONSOLE") {
 
                 console.info('Type is console')
 
-                const XMLpayLoad = await makeJsonToXml2(itemObj)
+                XMLpayLoad = await makeJsonToXml2(itemObj)
                 console.info("XML Payload Generated :",XMLpayLoad)
 
                 const dataResponse = await addMilestoneApi2(XMLpayLoad);
@@ -92,7 +94,7 @@ module.exports.handler = async (event, context) => {
 
                 itemObj.ConsolNo = _.get(validationData1, "ConsolNo", "")
 
-                const XMLpayLoad = await makeJsonToXml3(itemObj)
+                XMLpayLoad = await makeJsonToXml3(itemObj)
                 console.info("XML Payload Generated :",XMLpayLoad)
 
                 const dataResponse = await addMilestoneApi2(XMLpayLoad);
@@ -319,12 +321,13 @@ async function updateStatusTable(Housebill,StatusCode,apiStatus, Payload = "", R
             StatusCode
         },
         UpdateExpression:
-          'set Payload = :payload, #Response = :response, #Status = :status, EventDateTime = :eventDateTime, ErrorMessage = :errorMessage',
+          'set Housebill = :housebill, Payload = :payload, #Response = :response, #Status = :status, EventDateTime = :eventDateTime, ErrorMessage = :errorMessage',
         ExpressionAttributeNames: {
           '#Status': 'Status',
           '#Response': 'Response',
         },
         ExpressionAttributeValues: {
+            ':housebill' : Housebill,
             ':payload': String(Payload),
             ':response': String(Response),
             ':status': apiStatus,
