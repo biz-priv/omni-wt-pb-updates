@@ -55,10 +55,21 @@ module.exports.handler = async (event, context) => {
 
             if (type === NON_CONSOLE) {
                 console.info('Type is notconsole')
+
+                const XMLpayLoad = await makeJsonToXml(itemObj)
+                console.info("XML Payload Generated :",XMLpayLoad)
+
+                const dataResponse = await addMilestoneApi(XMLpayLoad);
+                console.info("dataResponse", dataResponse);
+                itemObj.Reponse = dataResponse;
+
+                await updateStatusTable(itemObj.Housebill, itemObj.StatusCode, "SENT", XMLpayLoad, dataResponse)
             }
 
             if (type === CONSOLE) {
                 console.info('Type is notconsole')
+
+                
             } else {
                 console.info('Type is Multistop')
                 
@@ -73,21 +84,21 @@ module.exports.handler = async (event, context) => {
             // const ShipmentId = _.get(validationData, "ShipmentId","");
             // const Status204 = _.get(validationData, "Status","");
 
-            // if (ShipmentId === itemObj.OrderId && Status204 === "SENT") {
+            if (ShipmentId === itemObj.OrderId && Status204 === "SENT") {
 
-            //     const XMLpayLoad = await makeJsonToXml(itemObj)
-            //     console.info("XML Payload Generated :",XMLpayLoad)
+                const XMLpayLoad = await makeJsonToXml(itemObj)
+                console.info("XML Payload Generated :",XMLpayLoad)
 
-            //     const dataResponse = await addMilestoneApi(XMLpayLoad);
-            //     console.info("dataResponse", dataResponse);
-            //     itemObj.Reponse = dataResponse;
+                const dataResponse = await addMilestoneApi(XMLpayLoad);
+                console.info("dataResponse", dataResponse);
+                itemObj.Reponse = dataResponse;
 
-            //     await updateStatusTable(itemObj.Housebill, itemObj.StatusCode, "SENT", XMLpayLoad, dataResponse)
+                await updateStatusTable(itemObj.Housebill, itemObj.StatusCode, "SENT", XMLpayLoad, dataResponse)
                 
-            // } else {
-            //     await updateStatusTable(itemObj.Housebill, itemObj.StatusCode, "SKIPPED", '', '');
-            //     console.info("Skipping the record as the Shipment is not available in 204")
-            // }
+            } else {
+                await updateStatusTable(itemObj.Housebill, itemObj.StatusCode, "SKIPPED", '', '');
+                console.info("Skipping the record as the Shipment is not available in 204")
+            }
         }
 
     } catch (error) {
