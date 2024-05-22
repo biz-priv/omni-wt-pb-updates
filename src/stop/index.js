@@ -90,7 +90,6 @@ exports.handler = async (event) => {
                 const finalPayload = await getPayloadForStopDb(StatusCode, stopId);
                 await updateMilestone(finalPayload)
             }
-            
         });
 
         await Promise.all(promises);

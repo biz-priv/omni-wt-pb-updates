@@ -110,8 +110,13 @@ async function getMovement(id){
 
     try {
         const result = await query(movementParams);
-        console.log(result);
-        return _.get(result[0], 'id', '');
+
+
+        if (result.length > 0) {
+            return _.get(result[0], 'id', '');
+        } else {
+            throw new Error('No Record found in Movement Table');
+        }
 
     } catch (error) {
         console.error('Error in getMovement function:', error);
