@@ -3,6 +3,7 @@ const _ = require('lodash');
 const { getMovementOrder,getOrder,updateMilestone, getMovement} = require('../shared/dynamo');
 const moment = require('moment-timezone');
 
+const { ERROR_SNS_TOPIC_ARN, ADD_MILESTONE_TABLE_NAME} = process.env;
 
 exports.handler = async (event) => {
 
@@ -41,6 +42,9 @@ exports.handler = async (event) => {
 
             console.info("Old Actual Departure: ", oldActualDeparture);
             console.info("New Actual Departure: ", newActualDeparture);
+
+            console.info("Old Confirmed: ", oldConfirmed);
+            console.info("New Confirmed: ", newConfirmed);
 
             console.info("New Stop Type: ", newStopType);
 
