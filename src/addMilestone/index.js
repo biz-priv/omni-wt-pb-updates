@@ -30,6 +30,7 @@ module.exports.handler = async (event, context) => {
     console.info("Test lambda has been triggered on Dynamo Trigger With Filter Expression.");
 
     let XMLpayLoad;
+    let dataResponse;
 
     try {
         const records = _.get(event, 'Records', []);
@@ -64,7 +65,7 @@ module.exports.handler = async (event, context) => {
                 XMLpayLoad = await generateNonConsoleXmlPayload(itemObj)
                 console.info("XML Payload Generated :",XMLpayLoad)
 
-                const dataResponse = await addMilestoneApi1(XMLpayLoad);
+                dataResponse = await addMilestoneApi1(XMLpayLoad);
                 console.info("dataResponse", dataResponse);
                 itemObj.Reponse = dataResponse;
 
@@ -78,7 +79,7 @@ module.exports.handler = async (event, context) => {
                 XMLpayLoad = await generateConsoleXmlPayload(itemObj)
                 console.info("XML Payload Generated :",XMLpayLoad)
 
-                const dataResponse = await addMilestoneApi2(XMLpayLoad);
+                dataResponse = await addMilestoneApi2(XMLpayLoad);
                 console.info("dataResponse", dataResponse);
                 itemObj.Reponse = dataResponse;
 
@@ -97,7 +98,7 @@ module.exports.handler = async (event, context) => {
                 XMLpayLoad = await generateMultistopXmlPayload(itemObj)
                 console.info("XML Payload Generated :",XMLpayLoad)
 
-                const dataResponse = await addMilestoneApi2(XMLpayLoad);
+                dataResponse = await addMilestoneApi2(XMLpayLoad);
                 console.info("dataResponse", dataResponse);
                 itemObj.Reponse = dataResponse;
 
