@@ -61,7 +61,7 @@ module.exports.handler = async (event, context) => {
             if (type === "NON_CONSOLE") {
                 console.info('This is of Type NON_CONSOLE')
 
-                XMLpayLoad = await makeJsonToXml1(itemObj)
+                XMLpayLoad = await generateNonConsoleXmlPayload(itemObj)
                 console.info("XML Payload Generated :",XMLpayLoad)
 
                 const dataResponse = await addMilestoneApi1(XMLpayLoad);
@@ -75,7 +75,7 @@ module.exports.handler = async (event, context) => {
 
                 console.info('This is of Type CONSOLE')
 
-                XMLpayLoad = await makeJsonToXml2(itemObj)
+                XMLpayLoad = await generateConsoleXmlPayload(itemObj)
                 console.info("XML Payload Generated :",XMLpayLoad)
 
                 const dataResponse = await addMilestoneApi2(XMLpayLoad);
@@ -94,7 +94,7 @@ module.exports.handler = async (event, context) => {
 
                 itemObj.ConsolNo = _.get(consolStatusValidationData, "ConsolNo", "")
 
-                XMLpayLoad = await makeJsonToXml3(itemObj)
+                XMLpayLoad = await generateMultistopXmlPayload(itemObj)
                 console.info("XML Payload Generated :",XMLpayLoad)
 
                 const dataResponse = await addMilestoneApi2(XMLpayLoad);
@@ -128,7 +128,7 @@ async function publishSNSTopic({ Id, message}) {
     }
   }
 
-async function makeJsonToXml1(itemObj) {
+async function generateNonConsoleXmlPayload(itemObj) {
     try {
         const xml = js2xml({
             "soap:Envelope": {
@@ -159,7 +159,7 @@ async function makeJsonToXml1(itemObj) {
     }
 }
 
-async function makeJsonToXml2(itemObj) {
+async function generateConsoleXmlPayload(itemObj) {
     try {
         const xml = js2xml({
             "soap:Envelope": {
@@ -190,7 +190,7 @@ async function makeJsonToXml2(itemObj) {
     }
 }
 
-async function makeJsonToXml3(itemObj) {
+async function generateMultistopXmlPayload(itemObj) {
     try {
         const xml = js2xml({
             "soap:Envelope": {
