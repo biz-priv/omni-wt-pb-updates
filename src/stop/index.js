@@ -11,9 +11,14 @@ exports.handler = async (event) => {
     let Housebill;
 
     console.info("Event: ", JSON.stringify(event));
+    
 
     try {
         const records = _.get(event, 'Records', []);
+        if(_.get(records, "eventName")==='INSERT' || _.get(records, "eventName")==='REMOVE'){
+            console.info("SKipping Insert/Remove Event");
+            return;
+        }
         const promises = records.map(async (record) => {
             const newUnmarshalledRecord = AWS.DynamoDB.Converter.unmarshall(record.dynamodb.NewImage);
             const oldUnmarshalledRecord = AWS.DynamoDB.Converter.unmarshall(record.dynamodb.OldImage);
@@ -30,7 +35,14 @@ exports.handler = async (event) => {
 
             const oldConfirmed = _.get(oldUnmarshalledRecord, 'confirmed', '');
             const newConfirmed = _.get(newUnmarshalledRecord, 'confirmed', '');
+            
+            console.info("Old Actual Arrival: ", oldActualArrival);
+            console.info("New Actual Arrival: ", newActualArrival);
 
+            console.info("Old Actual Departure: ", oldActualDeparture);
+            console.info("New Actual Departure: ", newActualDeparture);
+
+            console.info("New Stop Type: ", newStopType);
 
             //Status Code = APL
             if((oldActualArrival==='' || oldActualArrival===null) && (newActualArrival!==null || newActualArrival!=='') && newStopType==='PU'){
