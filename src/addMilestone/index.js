@@ -321,13 +321,12 @@ async function updateStatusTable(Housebill,StatusCode,apiStatus, Payload = "", R
             StatusCode
         },
         UpdateExpression:
-          'set Housebill = :housebill, Payload = :payload, #Response = :response, #Status = :status, EventDateTime = :eventDateTime, ErrorMessage = :errorMessage',
+          'set Payload = :payload, #Response = :response, #Status = :status, EventDateTime = :eventDateTime, ErrorMessage = :errorMessage',
         ExpressionAttributeNames: {
           '#Status': 'Status',
           '#Response': 'Response',
         },
         ExpressionAttributeValues: {
-            ':housebill' : Housebill,
             ':payload': String(Payload),
             ':response': String(Response),
             ':status': apiStatus,
