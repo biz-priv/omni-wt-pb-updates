@@ -45,22 +45,25 @@ exports.handler = async (event) => {
             console.info("New Stop Type: ", newStopType);
 
             //Status Code = APL
-            if((oldActualArrival==='' || oldActualArrival===null) && (newActualArrival!==null || newActualArrival!=='') && newStopType==='PU'){
+            if((oldActualArrival==='' || oldActualArrival===null) && (newActualArrival!==null && newActualArrival!=='') && newStopType==='PU'){
                 StatusCode = 'APL';
+                console.info("Sending Status Code: ", StatusCode);
                 const finalPayload = await getPayloadForStopDb(StatusCode, stopId);
                 await updateMilestone(finalPayload)
             }
 
             //status Code = TTC
-            if((oldActualDeparture===null || oldActualDeparture==='') && (newActualDeparture!==null  || newActualDeparture!=='') && newStopType==='PU'){
+            if((oldActualDeparture===null || oldActualDeparture==='') && (newActualDeparture!==null  && newActualDeparture!=='') && newStopType==='PU'){
                 StatusCode = 'TTC';
+                console.info("Sending Status Code: ", StatusCode);
                 const finalPayload = await getPayloadForStopDb(StatusCode, stopId);
                 await updateMilestone(finalPayload)
             }
 
             //status Code = AAD
-            if((oldActualArrival==='' || oldActualArrival===null ) && (newActualArrival!==null || newActualArrival!=='') && newStopType==='SO'){
+            if((oldActualArrival==='' || oldActualArrival===null ) && (newActualArrival!==null && newActualArrival!=='') && newStopType==='SO'){
                 StatusCode = 'AAD';
+                console.info("Sending Status Code: ", StatusCode);
                 const finalPayload = await getPayloadForStopDb(StatusCode, stopId);
                 await updateMilestone(finalPayload)
             }
@@ -75,6 +78,7 @@ exports.handler = async (event) => {
             //status Code = APP
             if(oldConfirmed!='Y' && newConfirmed==='Y' && newStopType==='PU'){
                 StatusCode = 'APP';
+                console.info("Sending Status Code: ", StatusCode);
                 const finalPayload = await getPayloadForStopDb(StatusCode, stopId);
                 await updateMilestone(finalPayload)
             }
@@ -82,6 +86,7 @@ exports.handler = async (event) => {
             //status Code = APD
             if(oldConfirmed!='Y' && newConfirmed==='Y' && newStopType==='SO'){
                 StatusCode = 'APD';
+                console.info("Sending Status Code: ", StatusCode);
                 const finalPayload = await getPayloadForStopDb(StatusCode, stopId);
                 await updateMilestone(finalPayload)
             }
