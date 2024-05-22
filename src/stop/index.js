@@ -1,7 +1,9 @@
 const AWS = require('aws-sdk');
 const _ = require('lodash');
-const { getMovementOrder,getOrder,updateMilestone, getMovement} = require('../shared/dynamo');
 const moment = require('moment-timezone');
+
+const { getMovementOrder,getOrder,updateMilestone, getMovement} = require('../shared/dynamo');
+const {publishSNSTopic} = require('../shared/utils');
 
 exports.handler = async (event) => {
 
@@ -86,7 +88,12 @@ exports.handler = async (event) => {
             ErrorMessage: error.message,
             StatusCode: 'FAILED'
           });
-        throw error
+        
+        await publishSNSTopic({
+            message: `Error processing Id: ${Id}, ${e.message}. \n Please check the error meesage in DynamoDb Table ${ADD_MILESTONE_TABLE_NAME} for complete error`,
+            Id
+          });
+        throw error;
     }
 };
 
@@ -97,7 +104,8 @@ async function getPayloadForStopDb(StatusCode, stopId){
         const Housebill  = await getOrder(order_id);
 
         const finalPayload = {
-            movementId,
+            Id: movementId,
+            OrderId: order_id,
             StatusCode,
             Housebill: Housebill.toString(),
             EventDateTime: moment.tz('America/Chicago').format(),
