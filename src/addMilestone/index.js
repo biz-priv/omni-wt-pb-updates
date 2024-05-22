@@ -57,15 +57,15 @@ module.exports.handler = async (event, context) => {
             console.info("Data Coming from 204 Order Status Table:", orderStatusValidationData)
 
             const type = _.get(orderStatusValidationData, "Type","");
-            const FK_OrderNo = _.get(orderStatusValidationData, "FK_OrderNo","");
+            itemObj.FK_OrderNo = _.get(orderStatusValidationData, "FK_OrderNo","");
 
             if (type === "NON_CONSOLE") {
                 console.info('This is of Type NON_CONSOLE')
 
-                XMLpayLoad = await generateNonConsoleXmlPayload(itemObj)
+                XMLpayLoad = await generateNonConsolXmlPayload(itemObj)
                 console.info("XML Payload Generated :",XMLpayLoad)
 
-                dataResponse = await addMilestoneApi1(XMLpayLoad);
+                dataResponse = await addMilestoneApiDataForNonConsol(XMLpayLoad);
                 console.info("dataResponse", dataResponse);
                 itemObj.Reponse = dataResponse;
 
@@ -76,14 +76,14 @@ module.exports.handler = async (event, context) => {
 
                 console.info('This is of Type CONSOLE')
 
-                XMLpayLoad = await generateConsoleXmlPayload(itemObj)
+                XMLpayLoad = await generateConsolXmlPayload(itemObj)
                 console.info("XML Payload Generated :",XMLpayLoad)
 
-                dataResponse = await addMilestoneApi2(XMLpayLoad);
+                dataResponse = await addMilestoneApiDataForConsol(XMLpayLoad);
                 console.info("dataResponse", dataResponse);
                 itemObj.Reponse = dataResponse;
 
-                await updateStatusTable(FK_OrderNo, itemObj.StatusCode, "SENT", XMLpayLoad, dataResponse)
+                await updateStatusTable(itemObj.FK_OrderNo, itemObj.StatusCode, "SENT", XMLpayLoad, dataResponse)
             } 
             
             else {
@@ -98,7 +98,7 @@ module.exports.handler = async (event, context) => {
                 XMLpayLoad = await generateMultistopXmlPayload(itemObj)
                 console.info("XML Payload Generated :",XMLpayLoad)
 
-                dataResponse = await addMilestoneApi2(XMLpayLoad);
+                dataResponse = await addMilestoneApiDataForConsol(XMLpayLoad);
                 console.info("dataResponse", dataResponse);
                 itemObj.Reponse = dataResponse;
 
@@ -110,6 +110,7 @@ module.exports.handler = async (event, context) => {
     } catch (error) {
         console.error("Error processing event:", error);
         await updateStatusTable(itemObj.Housebill, itemObj.StatusCode, "FAILED", XMLpayLoad, dataResponse, error.message);
+        await publishSNSTopic({Id: itemObj.Id , message: `Error Details:${error}` });
         throw error;
     }
 };
@@ -129,7 +130,7 @@ async function publishSNSTopic({ Id, message}) {
     }
   }
 
-async function generateNonConsoleXmlPayload(itemObj) {
+async function generateNonConsolXmlPayload(itemObj) {
     try {
         const xml = js2xml({
             "soap:Envelope": {
@@ -160,7 +161,7 @@ async function generateNonConsoleXmlPayload(itemObj) {
     }
 }
 
-async function generateConsoleXmlPayload(itemObj) {
+async function generateConsolXmlPayload(itemObj) {
     try {
         const xml = js2xml({
             "soap:Envelope": {
@@ -222,7 +223,7 @@ async function generateMultistopXmlPayload(itemObj) {
     }
 }
 
-async function addMilestoneApi1(postData) {
+async function addMilestoneApiDataForNonConsol(postData) {
     try {
 
         const config = {
@@ -257,7 +258,7 @@ async function addMilestoneApi1(postData) {
     }
 }
 
-async function addMilestoneApi2(postData) {
+async function addMilestoneApiDataForConsol(postData) {
     try {
 
         const config = {
