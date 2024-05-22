@@ -76,7 +76,7 @@ exports.handler = async (event) => {
             // }
 
             //status Code = APP
-            if(oldConfirmed!='Y' && newConfirmed==='Y' && newStopType==='PU'){
+            if(oldConfirmed!=='Y' && newConfirmed==='Y' && newStopType==='PU'){
                 StatusCode = 'APP';
                 console.info("Sending Status Code: ", StatusCode);
                 const finalPayload = await getPayloadForStopDb(StatusCode, stopId);
@@ -84,7 +84,7 @@ exports.handler = async (event) => {
             }
 
             //status Code = APD
-            if(oldConfirmed!='Y' && newConfirmed==='Y' && newStopType==='SO'){
+            if(oldConfirmed!=='Y' && newConfirmed==='Y' && newStopType==='SO'){
                 StatusCode = 'APD';
                 console.info("Sending Status Code: ", StatusCode);
                 const finalPayload = await getPayloadForStopDb(StatusCode, stopId);

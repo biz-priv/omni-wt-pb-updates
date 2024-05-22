@@ -115,7 +115,7 @@ async function getMovement(id){
         if (result.length > 0) {
             return _.get(result[0], 'id', '');
         } else {
-            throw new Error('No Record found in Movement Table');
+            throw new Error('No Record found in Movement Table for id: ', id);
         }
 
     } catch (error) {
