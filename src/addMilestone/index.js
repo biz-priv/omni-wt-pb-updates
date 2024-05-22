@@ -52,14 +52,14 @@ module.exports.handler = async (event, context) => {
 
             console.info('OrderId coming from Event:', itemObj.OrderId)
 
-            const validationData = await getOrderStatus(itemObj.OrderId)
-            console.info("Data Coming from 204 Order Status Table:", validationData)
+            const orderStatusValidationData = await getOrderStatus(itemObj.OrderId)
+            console.info("Data Coming from 204 Order Status Table:", orderStatusValidationData)
 
-            const type = _.get(validationData, "Type","");
-            const FK_OrderNo = _.get(validationData, "FK_OrderNo","");
+            const type = _.get(orderStatusValidationData, "Type","");
+            const FK_OrderNo = _.get(orderStatusValidationData, "FK_OrderNo","");
 
             if (type === "NON_CONSOLE") {
-                console.info('Type is notconsole')
+                console.info('This is of Type NON_CONSOLE')
 
                 XMLpayLoad = await makeJsonToXml1(itemObj)
                 console.info("XML Payload Generated :",XMLpayLoad)
@@ -73,7 +73,7 @@ module.exports.handler = async (event, context) => {
 
             else if (type === "CONSOLE") {
 
-                console.info('Type is console')
+                console.info('This is of Type CONSOLE')
 
                 XMLpayLoad = await makeJsonToXml2(itemObj)
                 console.info("XML Payload Generated :",XMLpayLoad)
@@ -87,12 +87,12 @@ module.exports.handler = async (event, context) => {
             
             else {
 
-                console.info('Type is Multistop')
+                console.info('This is of Type Multistop')
                 
-                const validationData1 = await getConsolStatus(itemObj.OrderId)
-                console.info("Data Coming from 204 Consol Status Table:", validationData1)
+                const consolStatusValidationData = await getConsolStatus(itemObj.OrderId)
+                console.info("Data Coming from 204 Consol Status Table:", consolStatusValidationData)
 
-                itemObj.ConsolNo = _.get(validationData1, "ConsolNo", "")
+                itemObj.ConsolNo = _.get(consolStatusValidationData, "ConsolNo", "")
 
                 XMLpayLoad = await makeJsonToXml3(itemObj)
                 console.info("XML Payload Generated :",XMLpayLoad)
@@ -104,27 +104,6 @@ module.exports.handler = async (event, context) => {
                 await updateStatusTable(itemObj.ConsolNo, itemObj.StatusCode, "SENT", XMLpayLoad, dataResponse)
 
             }
-            // const validationData = await getLive204OrderStatus(itemObj.Housebill)
-            // console.info("Data Coming from 204 Dynamo Table:", validationData)
-
-            // const ShipmentId = _.get(validationData, "ShipmentId","");
-            // const Status204 = _.get(validationData, "Status","");
-
-            // if (ShipmentId === itemObj.OrderId && Status204 === "SENT") {
-
-            //     const XMLpayLoad = await makeJsonToXml(itemObj)
-            //     console.info("XML Payload Generated :",XMLpayLoad)
-
-            //     const dataResponse = await addMilestoneApi(XMLpayLoad);
-            //     console.info("dataResponse", dataResponse);
-            //     itemObj.Reponse = dataResponse;
-
-            //     await updateStatusTable(itemObj.Housebill, itemObj.StatusCode, "SENT", XMLpayLoad, dataResponse)
-                
-            // } else {
-            //     await updateStatusTable(itemObj.Housebill, itemObj.StatusCode, "SKIPPED", '', '');
-            //     console.info("Skipping the record as the Shipment is not available in 204")
-            // }
         }
 
     } catch (error) {
