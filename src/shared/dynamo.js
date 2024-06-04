@@ -92,10 +92,10 @@ async function updateMilestone(finalPayload) {
     }
 }
 
-async function getMovement(id){
+async function getMovement(id,stopType){
     const movementParams = {
         TableName: process.env['MOVEMENT_DB'],
-        IndexName: 'OriginStopIndex',
+        IndexName: stopType==='PU'?'OriginStopIndex':'DestStopIndex',
         KeyConditionExpression: 'origin_stop_id = :id',
         FilterExpression: '#status IN (:statusA, :statusC)',
         ExpressionAttributeNames: {
