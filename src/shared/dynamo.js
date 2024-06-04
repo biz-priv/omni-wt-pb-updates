@@ -96,7 +96,7 @@ async function getMovement(id,stopType){
     const movementParams = {
         TableName: process.env['MOVEMENT_DB'],
         IndexName: stopType==='PU'?'OriginStopIndex':'DestStopIndex',
-        KeyConditionExpression: 'origin_stop_id = :id',
+        KeyConditionExpression: stopType === 'PU' ? 'origin_stop_id = :id' : 'dest_stop_id = :id',
         FilterExpression: '#status IN (:statusA, :statusC)',
         ExpressionAttributeNames: {
             '#status': 'status'
