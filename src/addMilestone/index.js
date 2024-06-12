@@ -296,7 +296,8 @@ async function addMilestoneApiDataForConsol(postData) {
 async function updateStatusTable(Housebill,StatusCode,apiStatus, Payload = "", Response = "", ErrorMessage = "") {
     try {
       const updateParam = {
-        TableName: 'omni-pb-214-add-milestone-dev',
+        TableName: ADD_MILESTONE_TABLE_NAME,
+        // TableName: 'omni-pb-214-add-milestone-dev', //ssm here
         Key: {
             Housebill, 
             StatusCode

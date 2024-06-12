@@ -164,6 +164,7 @@ async function publishSNSTopic({ Housebill, message}) {
     }
   }
 
+// review this function
 async function checkForPod(movementId) {
       const username = "apiuser";
       const password = "lvlpapiuser";
