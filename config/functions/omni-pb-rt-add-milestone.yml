@@ -33,7 +33,6 @@ function:
     ORDER_STATUS_TABLE_NAME: ${ssm:/omni-204-create-shipment/${self:provider.stage}/status/ddb.name}
     CONSOL_STATUS_TABLE_NAME: ${ssm:/omni-live-204/${self:provider.stage}/consol-status/ddb.tableName}
     ADD_MILESTONE_URL: ${ssm:/omni-ivia/${self:provider.stage}/addMilestone/url} 
-    # ADD_MILESTONE_URL_2: 'https://wttest.omnilogistics.com/WTKServices/shipments.asmx?op=UpdateStatusByConsolNo' #addmilestone console url
     ADD_MILESTONE_URL_2: ${ssm:/omni-ivia/${self:provider.stage}/addMilestone/console/url}
     WT_SOAP_USERNAME: ${ssm:/omni-dw/${self:provider.stage}/wt/soap/username}
 

@@ -27,8 +27,6 @@ let itemObj = {
 }
 
 module.exports.handler = async (event, context) => {
-    console.info("Test lambda has been triggered on Dynamo Trigger With Filter Expression.");
-
     let XMLpayLoad;
     let dataResponse;
 
@@ -89,7 +87,7 @@ module.exports.handler = async (event, context) => {
             else {
 
                 console.info('This is of Type Multistop')
-                
+
                 const consolStatusValidationData = await getConsolStatus(itemObj.OrderId)
                 console.info("Data Coming from 204 Consol Status Table:", consolStatusValidationData)
 
