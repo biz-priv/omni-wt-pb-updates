@@ -31,12 +31,9 @@ function:
     MOVEMENT_TABLE_NAME: ${ssm:/omni-pb-rt/${self:provider.stage}/movement/db}
     ADD_MILESTONE_TABLE_NAME: ${ssm:/omni-pb-214/${self:provider.stage}/add-milestone/db}
     ORDER_STATUS_TABLE_NAME: ${ssm:/omni-204-create-shipment/${self:provider.stage}/status/ddb.name}
-    # ORDER_STATUS_TABLE_NAME: 'live-204-order-status-dev' #existing
-    # CONSOL_STATUS_TABLE_NAME: 'live-204-consol-status-dev' #existing
     CONSOL_STATUS_TABLE_NAME: ${ssm:/omni-live-204/${self:provider.stage}/consol-status/ddb.tableName}
     ADD_MILESTONE_URL: ${ssm:/omni-ivia/${self:provider.stage}/addMilestone/url} 
     # ADD_MILESTONE_URL_2: 'https://wttest.omnilogistics.com/WTKServices/shipments.asmx?op=UpdateStatusByConsolNo' #addmilestone console url
-    ADD_MILESTONE_URL_2: ${ssm:/omni-ivia/${self:provider.stage}/addMilestone/url}
+    ADD_MILESTONE_URL_2: ${ssm:/omni-ivia/${self:provider.stage}/addMilestone/console/url}
     WT_SOAP_USERNAME: ${ssm:/omni-dw/${self:provider.stage}/wt/soap/username}
-    # WT_SOAP_USERNAME: 'apiuser'
 

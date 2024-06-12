@@ -81,7 +81,6 @@ async function getOrder(orderId) {
 async function updateMilestone(finalPayload) {
     const addMilestoneParams = {
         TableName: ADD_MILESTONE_TABLE_NAME,
-        // TableName: 'omni-pb-214-add-milestone-dev', //ssm
         Item: finalPayload
     };
     try {

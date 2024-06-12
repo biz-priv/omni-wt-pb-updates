@@ -297,7 +297,6 @@ async function updateStatusTable(Housebill,StatusCode,apiStatus, Payload = "", R
     try {
       const updateParam = {
         TableName: ADD_MILESTONE_TABLE_NAME,
-        // TableName: 'omni-pb-214-add-milestone-dev', //ssm here
         Key: {
             Housebill, 
             StatusCode
