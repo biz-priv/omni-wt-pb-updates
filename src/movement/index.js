@@ -5,7 +5,7 @@ const moment = require('moment-timezone');
 const sns = new AWS.SNS();
 const axios = require('axios');
 
-const { ERROR_SNS_TOPIC_ARN, ADD_MILESTONE_TABLE_NAME} = process.env;
+const { ERROR_SNS_TOPIC_ARN, ADD_MILESTONE_TABLE_NAME, ENVIRONMENT} = process.env;
 
 let functionName;
 
@@ -153,7 +153,7 @@ async function publishSNSTopic({ Housebill, message}) {
     try {
       const params = {
         TopicArn: ERROR_SNS_TOPIC_ARN,
-        Subject: `PB ADD MILESTONE ERROR NOTIFICATION - ${STAGE} ~ Housebill: ${Housebill}`,
+        Subject: `PB ADD MILESTONE ERROR NOTIFICATION - ${ENVIRONMENT} ~ Housebill: ${Housebill}`,
         Message: `An error occurred in ${functionName}: ${message}`
       };
   
@@ -183,14 +183,14 @@ async function checkForPod(movementId) {
   
           if (response.status !== 200) {
               let errorMessage = `Failed to get order ID for movement ${movementId}. Status code: ${response.status}`;
-              await publishSnsTopic(movementId, errorMessage);
+              await publishSNSTopic(movementId, errorMessage);
               return 'N';
           }
   
           let output = response.data;
           if (!output || !output[0].orders || !output[0].orders.length) {
               let errorMessage = `No orders found for movement ${movementId}.`;
-              await publishSnsTopic(movementId, errorMessage);
+              await publishSNSTopic(movementId, errorMessage);
               return 'N';
           }
   
@@ -202,7 +202,7 @@ async function checkForPod(movementId) {
   
           if (response.status !== 200) {
               let errorMessage = `Failed to get POD for order ${orderId}. Status code: ${response.status}`;
-              await publishSnsTopic(movementId, errorMessage);
+              await publishSNSTopic(movementId, errorMessage);
               return 'N';
           }
   
@@ -225,7 +225,7 @@ async function checkForPod(movementId) {
               }
           } catch (e) {
               let errorMessage = `Error processing POD data: ${e.message}`;
-              await publishSnsTopic(movementId, errorMessage);
+              await publishSNSTopic(movementId, errorMessage);
               photoId = 'NO POD';
               exists = 'N';
           }
@@ -235,7 +235,7 @@ async function checkForPod(movementId) {
   
       } catch (error) {
           let errorMessage = `Error: ${error.message}`;
-          await publishSnsTopic(movementId, errorMessage);
+          await publishSNSTopic(movementId, errorMessage);
           return 'N';
       }
   }
