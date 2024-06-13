@@ -66,7 +66,7 @@ module.exports.handler = async (event,context) => {
                 console.info("Value of Id", Id);
 
                 const order_id  = await getMovementOrder(Id);
-                const Housebill  = await getOrder(order_id);
+                Housebill  = await getOrder(order_id);
 
                 const finalPayload = {
                     OrderId: order_id,
@@ -87,6 +87,9 @@ module.exports.handler = async (event,context) => {
             if (oldStatus !== 'D' && newStatus === 'D') {
 
               const movementId = Id;
+              
+              const order_id  = await getMovementOrder(Id);
+              Housebill  = await getOrder(order_id);
 
               if (!movementId) {
                 return {
@@ -108,9 +111,6 @@ module.exports.handler = async (event,context) => {
           }
 
           console.info('WT status code :',StatusCode)
-
-          const order_id  = await getMovementOrder(Id);
-          const Housebill  = await getOrder(order_id);
 
               const finalPayload = {
                   OrderId: order_id,
@@ -142,19 +142,19 @@ module.exports.handler = async (event,context) => {
           });
         
           await publishSNSTopic({
-            message: `Error processing Housebill: ${Housebill}, ${e.message}. \n Please check the error meesage in DynamoDb Table ${ADD_MILESTONE_TABLE_NAME} for complete error`,
-            Id
+            subject: `PB ADD MILESTONE ERROR NOTIFICATION - ${ENVIRONMENT} ~ id: ${Id}` ,
+            message: `Error processing Housebill: ${Housebill}, ${error.message}. \n Please check the error meesage in DynamoDb Table ${ADD_MILESTONE_TABLE_NAME} for complete error`
           });
         throw error
     }
 };
 
-async function publishSNSTopic({ Housebill, message}) {
+async function publishSNSTopic({ subject, message}) {
     try {
       const params = {
         TopicArn: ERROR_SNS_TOPIC_ARN,
-        Subject: `PB ADD MILESTONE ERROR NOTIFICATION - ${ENVIRONMENT} ~ Housebill: ${Housebill}`,
-        Message: `An error occurred in ${functionName}: ${message}`
+        Subject: subject,
+        Message: message
       };
   
       await sns.publish(params).promise();
@@ -183,14 +183,20 @@ async function checkForPod(movementId) {
   
           if (response.status !== 200) {
               let errorMessage = `Failed to get order ID for movement ${movementId}. Status code: ${response.status}`;
-              await publishSNSTopic(movementId, errorMessage);
+              await publishSNSTopic({
+                subject: `PB ADD MILESTONE ERROR NOTIFICATION - ${ENVIRONMENT} ~ id: ${movementId}` ,
+                message: errorMessage
+              });
               return 'N';
           }
   
           let output = response.data;
           if (!output || !output[0].orders || !output[0].orders.length) {
               let errorMessage = `No orders found for movement ${movementId}.`;
-              await publishSNSTopic(movementId, errorMessage);
+              await publishSNSTopic({
+                subject: `PB ADD MILESTONE ERROR NOTIFICATION - ${ENVIRONMENT} ~ id: ${movementId}` ,
+                message: errorMessage
+              });
               return 'N';
           }
   
@@ -202,7 +208,10 @@ async function checkForPod(movementId) {
   
           if (response.status !== 200) {
               let errorMessage = `Failed to get POD for order ${orderId}. Status code: ${response.status}`;
-              await publishSNSTopic(movementId, errorMessage);
+              await publishSNSTopic({
+                subject: `PB ADD MILESTONE ERROR NOTIFICATION - ${ENVIRONMENT} ~ id: ${movementId}` ,
+                message: errorMessage
+              });
               return 'N';
           }
   
@@ -223,9 +232,12 @@ async function checkForPod(movementId) {
                   photoId = 'NO POD';
                   exists = 'N';
               }
-          } catch (e) {
-              let errorMessage = `Error processing POD data: ${e.message}`;
-              await publishSNSTopic(movementId, errorMessage);
+          } catch (error) {
+              let errorMessage = `Error processing POD data: ${error.message}`;
+              await publishSNSTopic({
+                subject: `PB ADD MILESTONE ERROR NOTIFICATION - ${ENVIRONMENT} ~ id: ${movementId}` ,
+                message: errorMessage
+              });
               photoId = 'NO POD';
               exists = 'N';
           }
@@ -235,7 +247,10 @@ async function checkForPod(movementId) {
   
       } catch (error) {
           let errorMessage = `Error: ${error.message}`;
-          await publishSNSTopic(movementId, errorMessage);
+          await publishSNSTopic({
+            subject: `PB ADD MILESTONE ERROR NOTIFICATION - ${ENVIRONMENT} ~ id: ${movementId}` ,
+            message: errorMessage
+          });
           return 'N';
       }
   }
