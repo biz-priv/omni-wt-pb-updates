@@ -21,7 +21,8 @@ function:
 
   environment:
     ENVIRONMENT: ${self:provider.stage}
-    ERROR_SNS_TOPIC_ARN: ${ssm:/omni-pb-rt/${self:provider.stage}/error-notification/arn}
+    # ERROR_SNS_TOPIC_ARN: ${ssm:/omni-pb-rt/${self:provider.stage}/error-notification/arn}
+    ERROR_SNS_TOPIC_ARN: ${ssm:/omni-power-broker/${self:provider.stage}/error-notification/sns/arn}
     ORDERS_TABLE_NAME: ${ssm:/omni-pb-rt/${self:provider.stage}/orders/db}
     MOVEMENT_ORDER_TABLE_NAME: ${ssm:/omni-pb-rt/${self:provider.stage}/movement-order/db}
     MOVEMENT_TABLE_NAME: ${ssm:/omni-pb-rt/${self:provider.stage}/movement/db}

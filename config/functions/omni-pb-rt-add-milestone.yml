@@ -24,7 +24,8 @@ function:
           maximumRetryAttempts: 3 
 
   environment:
-    ERROR_SNS_TOPIC_ARN: ${ssm:/omni-pb-rt/${self:provider.stage}/error-notification/arn}
+    # ERROR_SNS_TOPIC_ARN: ${ssm:/omni-pb-rt/${self:provider.stage}/error-notification/arn}
+    ERROR_SNS_TOPIC_ARN: ${ssm:/omni-power-broker/${self:provider.stage}/error-notification/sns/arn}
     ENVIRONMENT: ${self:provider.stage}
     ORDERS_TABLE_NAME: ${ssm:/omni-pb-rt/${self:provider.stage}/orders/db}
     MOVEMENT_ORDER_TABLE_NAME: ${ssm:/omni-pb-rt/${self:provider.stage}/movement-order/db}
