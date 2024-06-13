@@ -1,256 +1,215 @@
 const AWS = require('aws-sdk');
 const _ = require('lodash');
-const { getMovementOrder,getOrder,updateMilestone} = require('../shared/dynamo');
+const { getMovementOrder, getOrder, updateMilestone } = require('../shared/dynamo');
 const moment = require('moment-timezone');
 const sns = new AWS.SNS();
 const axios = require('axios');
 
-const { ERROR_SNS_TOPIC_ARN, ADD_MILESTONE_TABLE_NAME, ENVIRONMENT} = process.env;
+const { ERROR_SNS_TOPIC_ARN, ADD_MILESTONE_TABLE_NAME, ENVIRONMENT } = process.env;
 
 let functionName;
 
-module.exports.handler = async (event,context) => {
+module.exports.handler = async (event, context) => {
+  let Id;
+  let StatusCode;
+  let Housebill;
 
-    let Id;
-    let StatusCode;
-    let Housebill;
+  try {
+    functionName = _.get(context, 'functionName');
+    const records = _.get(event, 'Records', []);
+    const promises = records.map(async (record) => {
+      const newUnmarshalledRecord = AWS.DynamoDB.Converter.unmarshall(record.dynamodb.NewImage);
+      const oldUnmarshalledRecord = AWS.DynamoDB.Converter.unmarshall(record.dynamodb.OldImage);
 
-    try {
-        functionName = _.get(context, 'functionName');
-        const records = _.get(event, 'Records', []);
-        const promises = records.map(async (record) => {
-            const newUnmarshalledRecord = AWS.DynamoDB.Converter.unmarshall(record.dynamodb.NewImage);
-            const oldUnmarshalledRecord = AWS.DynamoDB.Converter.unmarshall(record.dynamodb.OldImage);
+      Id = _.get(newUnmarshalledRecord, 'id');
+      console.info('id coming from movement table:', Id);
 
-            Id = _.get(newUnmarshalledRecord, 'id');
-            console.info('id coming from movement table:', Id);
+      const oldBrokerageStatus = _.get(oldUnmarshalledRecord, 'brokerage_status');
+      const newBrokerageStatus = _.get(newUnmarshalledRecord, 'brokerage_status');
+      console.info('oldBrokerageStatus:', oldBrokerageStatus);
+      console.info('newBrokerageStatus:', newBrokerageStatus);
 
-            const oldBrokerageStatus = _.get(oldUnmarshalledRecord, 'brokerage_status');
-            const newBrokerageStatus = _.get(newUnmarshalledRecord, 'brokerage_status');
-            console.info('oldBrokerageStatus:', oldBrokerageStatus);
-            console.info('newBrokerageStatus:', newBrokerageStatus);
+      let oldStatus = _.get(oldUnmarshalledRecord, 'status');
+      let newStatus = _.get(newUnmarshalledRecord, 'status');
+      console.info('oldStatus:', oldStatus);
+      console.info('newStatus:', newStatus);
 
-            let oldStatus = _.get(oldUnmarshalledRecord, 'status');
-            let newStatus = _.get(newUnmarshalledRecord, 'status');
-            console.info('oldStatus:', oldStatus);
-            console.info('newStatus:', newStatus);
+      console.info('brokerage_status coming from movement table is:', newBrokerageStatus);
 
-            console.info('brokerage_status coming from movement table is:', newBrokerageStatus);
+      if (oldBrokerageStatus !== 'DISPATCH' && newBrokerageStatus === 'DISPATCH') {
+        StatusCode = 'DIS';
 
-            if (oldBrokerageStatus !== 'DISPATCH' && newBrokerageStatus === 'DISPATCH') {
-                StatusCode = 'DIS';
+        console.info('Value of Id', Id);
 
-                console.info("Value of Id", Id);
+        const order_id = await getMovementOrder(Id);
+        Housebill = await getOrder(order_id);
 
-                const order_id  = await getMovementOrder(Id);
-                Housebill  = await getOrder(order_id);
+        const finalPayload = {
+          OrderId: order_id,
+          StatusCode,
+          Housebill: Housebill.toString(),
+          EventDateTime: moment.tz('America/Chicago').format(),
+          Payload: '',
+          Response: '',
+          ErrorMessage: '',
+          Status: 'READY',
+        };
 
-                const finalPayload = {
-                    OrderId: order_id,
-                    StatusCode,
-                    Housebill: Housebill.toString(),
-                    EventDateTime: moment.tz('America/Chicago').format(),
-                    Payload: '',
-                    Response: '',
-                    ErrorMessage: '',
-                    Status: 'READY'
-                };
+        console.info(finalPayload);
+        await updateMilestone(finalPayload);
+      }
 
-                console.info(finalPayload);
-                await updateMilestone(finalPayload)
-            }
+      if (oldStatus === 'A' && newStatus === 'C') {
+        StatusCode = 'BOO';
 
-            if (oldStatus === 'A' && newStatus === 'C') {
-                StatusCode = 'BOO';
+        console.info('Value of Id', Id);
 
-                console.info("Value of Id", Id);
+        const order_id = await getMovementOrder(Id);
+        Housebill = await getOrder(order_id);
 
-                const order_id  = await getMovementOrder(Id);
-                Housebill  = await getOrder(order_id);
+        const finalPayload = {
+          OrderId: order_id,
+          StatusCode,
+          Housebill: Housebill.toString(),
+          EventDateTime: moment.tz('America/Chicago').format(),
+          Payload: '',
+          Response: '',
+          ErrorMessage: '',
+          Status: 'READY',
+        };
 
-                const finalPayload = {
-                    OrderId: order_id,
-                    StatusCode,
-                    Housebill: Housebill.toString(),
-                    EventDateTime: moment.tz('America/Chicago').format(),
-                    Payload: '',
-                    Response: '',
-                    ErrorMessage: '',
-                    Status: 'READY'
-                };
+        console.info(finalPayload);
+        await updateMilestone(finalPayload);
+      }
 
-                console.info(finalPayload);
-                await updateMilestone(finalPayload)
+      if (oldStatus !== 'D' && newStatus === 'D') {
+        const movementId = Id;
 
-            }
+        const order_id = await getMovementOrder(Id);
+        Housebill = await getOrder(order_id);
 
-            if (oldStatus !== 'D' && newStatus === 'D') {
+        if (!movementId) {
+          return {
+            statusCode: 400,
+            body: JSON.stringify('Movement ID is required'),
+          };
+        }
 
-              const movementId = Id;
-              
-              const order_id  = await getMovementOrder(Id);
-              Housebill  = await getOrder(order_id);
+        const podStatus = await checkForPod(movementId, order_id);
 
-              if (!movementId) {
-                return {
-                    statusCode: 400,
-                    body: JSON.stringify('Movement ID is required')
-                };
-              }
+        let resultMessage;
 
-            const podStatus = await checkForPod(movementId);
+        if (podStatus === 'Y') {
+          resultMessage = 'POD is Available';
+          StatusCode = 'DEL';
+        } else {
+          resultMessage = 'POD is Unavailable';
+          StatusCode = 'DWP';
+        }
 
-            let resultMessage;
+        console.info('WT status code :', StatusCode);
 
-            if (podStatus === 'Y') {
-              resultMessage = "POD is Available";
-              StatusCode = 'DEL';
-          } else {
-              resultMessage = "POD is Unavailable";
-              StatusCode = 'DWP';
-          }
+        const finalPayload = {
+          OrderId: order_id,
+          StatusCode,
+          Housebill: Housebill.toString(),
+          EventDateTime: moment.tz('America/Chicago').format(),
+          Payload: '',
+          Response: '',
+          ErrorMessage: '',
+          Status: 'READY',
+        };
 
-          console.info('WT status code :',StatusCode)
+        console.info(finalPayload);
+        await updateMilestone(finalPayload);
+      }
+    });
 
-              const finalPayload = {
-                  OrderId: order_id,
-                  StatusCode,
-                  Housebill: Housebill.toString(),
-                  EventDateTime: moment.tz('America/Chicago').format(),
-                  Payload: '',
-                  Response: '',
-                  ErrorMessage: '',
-                  Status: 'READY'
-              };
+    await Promise.all(promises);
+  } catch (error) {
+    console.error('Error in handler:', error);
 
-              console.info(finalPayload);
-              await updateMilestone(finalPayload)
+    await updateMilestone({
+      EventDateTime: moment.tz('America/Chicago').format(),
+      Housebill: Housebill.toString(),
+      ErrorMessage: error.message,
+      StatusCode: 'FAILED',
+    });
 
-            }
-
-        });
-
-        await Promise.all(promises);
-    } catch (error) {
-        console.error('Error in handler:', error);
-        
-        await updateMilestone({
-            EventDateTime: moment.tz('America/Chicago').format(),
-            Housebill: Housebill.toString(),
-            ErrorMessage: error.message,
-            StatusCode: 'FAILED'
-          });
-        
-          await publishSNSTopic({
-            subject: `PB ADD MILESTONE ERROR NOTIFICATION - ${ENVIRONMENT} ~ id: ${Id}` ,
-            message: `Error processing Housebill: ${Housebill}, ${error.message}. \n Please check the error meesage in DynamoDb Table ${ADD_MILESTONE_TABLE_NAME} for complete error`
-          });
-        throw error
-    }
+    await publishSNSTopic({
+      subject: `PB ADD MILESTONE ERROR NOTIFICATION - ${ENVIRONMENT} ~ id: ${Id}`,
+      message: `Error processing Housebill: ${Housebill}, ${error.message}. \n Please check the error meesage in DynamoDb Table ${ADD_MILESTONE_TABLE_NAME} for complete error`,
+    });
+    throw error;
+  }
 };
 
-async function publishSNSTopic({ subject, message}) {
-    try {
-      const params = {
-        TopicArn: ERROR_SNS_TOPIC_ARN,
-        Subject: subject,
-        Message: message
-      };
-  
-      await sns.publish(params).promise();
-    } catch (error) {
-      console.error('Error publishing to SNS topic:', error);
-      throw error;
-    }
-  }
+async function publishSNSTopic({ subject, message }) {
+  try {
+    const params = {
+      TopicArn: ERROR_SNS_TOPIC_ARN,
+      Subject: subject,
+      Message: message,
+    };
 
-async function checkForPod(movementId) {
-      const username = "apiuser";
-      const password = "lvlpapiuser";
-      const mcleodHeaders = {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json'
-      };
-      const rowType = 'O';
-  
-      // Basic Auth header
-      const authHeader = 'Basic ' + Buffer.from(username + ':' + password).toString('base64');
-  
-      try {
-          // Step 1: Get Order ID from Movement ID
-          let url = `https://tms-lvlp.loadtracking.com/ws/api/movements/search?id=${movementId}`;
-          let response = await axios.get(url, { headers: { ...mcleodHeaders, 'Authorization': authHeader } });
-  
-          if (response.status !== 200) {
-              let errorMessage = `Failed to get order ID for movement ${movementId}. Status code: ${response.status}`;
-              await publishSNSTopic({
-                subject: `PB ADD MILESTONE ERROR NOTIFICATION - ${ENVIRONMENT} ~ id: ${movementId}` ,
-                message: errorMessage
-              });
-              return 'N';
-          }
-  
-          let output = response.data;
-          if (!output || !output[0].orders || !output[0].orders.length) {
-              let errorMessage = `No orders found for movement ${movementId}.`;
-              await publishSNSTopic({
-                subject: `PB ADD MILESTONE ERROR NOTIFICATION - ${ENVIRONMENT} ~ id: ${movementId}` ,
-                message: errorMessage
-              });
-              return 'N';
-          }
-  
-          let orderId = output[0].orders[0].id;
-  
-          // Step 2: Get POD
-          url = `https://tms-lvlp.loadtracking.com/ws/api/images/${rowType}/${orderId}`;
-          response = await axios.get(url, { headers: { ...mcleodHeaders, 'Authorization': authHeader } });
-  
-          if (response.status !== 200) {
-              let errorMessage = `Failed to get POD for order ${orderId}. Status code: ${response.status}`;
-              await publishSNSTopic({
-                subject: `PB ADD MILESTONE ERROR NOTIFICATION - ${ENVIRONMENT} ~ id: ${movementId}` ,
-                message: errorMessage
-              });
-              return 'N';
-          }
-  
-          output = response.data;
-  
-          let photoType, photoId, exists;
-  
-          try {
-              if (!output) throw new Error("Empty response");
-  
-              photoType = output[0].descr.toUpperCase();
-  
-              // Step 2a: Check to see if there is a POD
-              if (photoType === '01-BILL OF LADING') {
-                  photoId = output[0].id;
-                  exists = 'Y';
-              } else {
-                  photoId = 'NO POD';
-                  exists = 'N';
-              }
-          } catch (error) {
-              let errorMessage = `Error processing POD data: ${error.message}`;
-              await publishSNSTopic({
-                subject: `PB ADD MILESTONE ERROR NOTIFICATION - ${ENVIRONMENT} ~ id: ${movementId}` ,
-                message: errorMessage
-              });
-              photoId = 'NO POD';
-              exists = 'N';
-          }
-  
-          console.log(`Does a POD for movement ${movementId} exist? ${exists}`);
-          return exists;
-  
-      } catch (error) {
-          let errorMessage = `Error: ${error.message}`;
-          await publishSNSTopic({
-            subject: `PB ADD MILESTONE ERROR NOTIFICATION - ${ENVIRONMENT} ~ id: ${movementId}` ,
-            message: errorMessage
-          });
-          return 'N';
-      }
+    await sns.publish(params).promise();
+  } catch (error) {
+    console.error('Error publishing to SNS topic:', error);
+    throw error;
   }
+}
+
+async function checkForPod(movementId, orderId) {
+  try {
+    const username = 'apiuser';
+    const password = 'lvlpapiuser';
+    const mcleodHeaders = {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json',
+    };
+    const rowType = 'O';
+
+    // Basic Auth header
+    const authHeader = 'Basic ' + Buffer.from(username + ':' + password).toString('base64');
+
+    // Get POD
+    const url = `https://tms-lvlp.loadtracking.com/ws/api/images/${rowType}/${orderId}`;
+    const response = await axios.get(url, {
+      headers: { ...mcleodHeaders, Authorization: authHeader },
+    });
+
+    if (response.status !== 200) {
+      let errorMessage = `Failed to get POD for order ${orderId}. Status code: ${response.status}`;
+      await publishSNSTopic({
+        subject: `PB ADD MILESTONE ERROR NOTIFICATION - ${ENVIRONMENT} ~ id: ${movementId}`,
+        message: errorMessage,
+      });
+      return 'N';
+    }
+
+    const output = response.data;
+
+    let photoType;
+    let exists;
+
+    if (!output) throw new Error('Empty response');
+
+    photoType = output[0].descr.toUpperCase();
+
+    //Check to see if there is a POD
+    if (photoType === '01-BILL OF LADING') {
+      exists = 'Y';
+    } else {
+      exists = 'N';
+    }
+    console.info('value in exists :', exists);
+    console.log(`Does a POD for movement ${movementId} exist? ${exists}`);
+    return exists;
+  } catch (error) {
+    let errorMessage = `Error processing POD data: ${error.message}`;
+    await publishSNSTopic({
+      subject: `PB ADD MILESTONE ERROR NOTIFICATION - ${ENVIRONMENT} ~ id: ${movementId}`,
+      message: errorMessage,
+    });
+  }
+}
