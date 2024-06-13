@@ -97,21 +97,20 @@ async function getMovement(id,stopType){
         TableName: process.env['MOVEMENT_DB'],
         IndexName: stopType==='PU'?'OriginStopIndex':'DestStopIndex',
         KeyConditionExpression: stopType === 'PU' ? 'origin_stop_id = :id' : 'dest_stop_id = :id',
-        FilterExpression: '#status IN (:statusA, :statusC)',
+        FilterExpression: '#status IN (:statusP, :statusC)',
         ExpressionAttributeNames: {
             '#status': 'status'
         },
-        ExpressionAttributeValues: {
+        ExpressionAttributeValues: {    
             ':id': id,
-            ':statusA': 'A',
+            ':statusP': 'P',
             ':statusC': 'C'
         }    
     }
 
     try {
         const result = await query(movementParams);
-
-
+        
         if (result.length > 0) {
             return _.get(result[0], 'id', '');
         } else {
