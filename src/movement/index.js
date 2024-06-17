@@ -14,6 +14,8 @@ module.exports.handler = async (event, context) => {
   let StatusCode;
   let Housebill;
 
+  console.info('Event coming in ',event)
+
   try {
     functionName = _.get(context, 'functionName');
     const records = _.get(event, 'Records', []);
@@ -169,14 +171,24 @@ async function checkForPod(movementId, orderId) {
     };
     const rowType = 'O';
 
+    console.log('movementID is ',movementId)
+    console.log('orderId is ',orderId)
+    console.log('Entered POD STATUS CHECK function')
+
     // Basic Auth header
     const authHeader = 'Basic ' + Buffer.from(username + ':' + password).toString('base64');
 
     // Get POD
-    const url = `https://tms-lvlp.loadtracking.com/ws/api/images/${rowType}/${orderId}`;
+    const url = `https://tms-lvlp.loadtracking.com:6790/ws/api/images/${rowType}/${orderId}`;
+
+    console.info('URL trying to fetch the details:',url)
+
     const response = await axios.get(url, {
       headers: { ...mcleodHeaders, Authorization: authHeader },
     });
+
+    console.info('RESPONSE: ', response)
+    console.info('RESPONSE Status: ', response.status)
 
     if (response.status !== 200) {
       let errorMessage = `Failed to get POD for order ${orderId}. Status code: ${response.status}`;
@@ -187,7 +199,11 @@ async function checkForPod(movementId, orderId) {
       return 'N';
     }
 
+    console.log('1st If Condition passed')
+
     const output = response.data;
+
+    console.log('Output tagged:',output)
 
     let photoType;
     let exists;
