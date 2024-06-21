@@ -1,7 +1,7 @@
 ---
 function:
   handler: src/addMilestone/index.handler
-  name: omni-pb-rt-test-lambda-${self:provider.stage}
+  name: omni-pb-rt-214-add-milestone-lambda-${self:provider.stage}
   description: OMNI PB Real Time Test Lambda - ${self:provider.stage}
   runtime: nodejs18.x
   layers:
