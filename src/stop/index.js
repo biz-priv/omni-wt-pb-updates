@@ -89,6 +89,11 @@ exports.handler = async (event) => {
         console.info('Sending Status Code: ', StatusCode);
         const finalPayload = await getPayloadForStopDb(StatusCode, stopId, newStopType);
         await updateMilestone(finalPayload);
+        //adding COB/IN Transit
+        StatusCode = 'COB';
+        console.info('Sending Status Code: ', StatusCode);
+        finalPayload = await getPayloadForStopDb(StatusCode, stopId, newStopType);
+        await updateMilestone(finalPayload);
       }
 
       //status Code = AAD
