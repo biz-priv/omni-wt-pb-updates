@@ -51,7 +51,7 @@ exports.handler = async (event) => {
 
       console.info('New Stop Type: ', newStopType);
 
-      const orderId = _.get(oldUnmarshalledRecord, 'order_id', '');
+      const orderId = _.get(newUnmarshalledRecord, 'order_id', '');
       console.info('Order Id coming from the Event:',orderId)
 
       const totalSequenceSteps = await getStop(orderId);
