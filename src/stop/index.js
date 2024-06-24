@@ -1,6 +1,12 @@
 const AWS = require('aws-sdk');
 const _ = require('lodash');
-const { getMovementOrder, getOrder, updateMilestone, getMovement } = require('../shared/dynamo');
+const {
+  getMovementOrder,
+  getOrder,
+  updateMilestone,
+  getMovement,
+  getStop,
+} = require('../shared/dynamo');
 const moment = require('moment-timezone');
 
 const { ERROR_SNS_TOPIC_ARN, ADD_MILESTONE_TABLE_NAME } = process.env;
@@ -45,6 +51,13 @@ exports.handler = async (event) => {
 
       console.info('New Stop Type: ', newStopType);
 
+      const totalSequenceSteps = await getStop(orderId);
+      const maxSequenceId = _.size(totalSequenceSteps);
+      console.info('Number of Records in Stop table for this record:', maxSequenceId); //max value
+
+      const seqId = await _.get(newUnmarshalledRecord, 'movement_sequence', '');
+      console.info('Sequence Id for the Record from Stop table for this record:', seqId); //seqId
+
       //Status Code = APL
       if (
         (oldActualArrival === '' || oldActualArrival === null) &&
@@ -52,10 +65,14 @@ exports.handler = async (event) => {
         newActualArrival !== '' &&
         newStopType === 'PU'
       ) {
-        StatusCode = 'APL';
-        console.info('Sending Status Code: ', StatusCode);
-        const finalPayload = await getPayloadForStopDb(StatusCode, stopId, newStopType);
-        await updateMilestone(finalPayload);
+        if (Number(seqId) - 1 === 0) {
+          console.info('The First Pickup of the Consolidation');
+          StatusCode = 'APL';
+          console.info('Sending Status Code: ', StatusCode);
+          const finalPayload = await getPayloadForStopDb(StatusCode, stopId, newStopType);
+          await updateMilestone(finalPayload);
+        }
+        console.info('This is not the first Pickup of the consolidation');
       }
 
       //status Code = TTC
@@ -78,10 +95,14 @@ exports.handler = async (event) => {
         newActualArrival !== '' &&
         newStopType === 'SO'
       ) {
-        StatusCode = 'AAD';
-        console.info('Sending Status Code: ', StatusCode);
-        const finalPayload = await getPayloadForStopDb(StatusCode, stopId, newStopType);
-        await updateMilestone(finalPayload);
+        if (maxSequenceId - Number(seqId) === 0) {
+          console.info('The Last Delivery of the Consolidation');
+          StatusCode = 'AAD';
+          console.info('Sending Status Code: ', StatusCode);
+          const finalPayload = await getPayloadForStopDb(StatusCode, stopId, newStopType);
+          await updateMilestone(finalPayload);
+        }
+        console.info('This is not the last delivery of the consolidation');
       }
 
       //status Code = APP

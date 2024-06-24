@@ -197,6 +197,30 @@ async function getConsolStatus(id) {
     }
 }
 
+async function getStop(order_id) {
+    const consolStatusParams = {
+        TableName: 'omni-pb-rt-stop-dev',
+        IndexName: 'order_id-index',
+        KeyConditionExpression: 'order_id = :order_id',
+        ExpressionAttributeValues: {
+            ':order_id': order_id
+        }
+    };
+
+    try {
+        const items = await query(consolStatusParams);
+
+        if (items.length > 0) {
+            return items;
+        } else {
+            console.info('No Records found in Stop Dynamo Table for Order_Id:', order_id);
+        }
+    } catch (error) {
+        console.error('Error in Stop function:', error);
+        throw error;
+    }
+}
+
 module.exports = {
     getMovementOrder,
     getOrder,
@@ -204,5 +228,6 @@ module.exports = {
     getMovement,
     getLive204OrderStatus,
     getOrderStatus,
-    getConsolStatus
+    getConsolStatus,
+    getStop
 };
