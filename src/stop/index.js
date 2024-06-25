@@ -87,7 +87,7 @@ exports.handler = async (event) => {
       ) {
         StatusCode = 'TTC';
         console.info('Sending Status Code: ', StatusCode);
-        const finalPayload = await getPayloadForStopDb(StatusCode, stopId, newStopType);
+        let finalPayload = await getPayloadForStopDb(StatusCode, stopId, newStopType);
         await updateMilestone(finalPayload);
         //adding COB/IN Transit
         StatusCode = 'COB';
