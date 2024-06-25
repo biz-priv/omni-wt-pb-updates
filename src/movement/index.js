@@ -39,7 +39,7 @@ module.exports.handler = async (event, context) => {
       console.info('brokerage_status coming from movement table is:', newBrokerageStatus);
 
       if (oldBrokerageStatus !== 'DISPATCH' && newBrokerageStatus === 'DISPATCH') {
-        StatusCode = 'DIS';
+        StatusCode = 'DIS'; //TLD
 
         console.info('Value of Id', Id);
 
