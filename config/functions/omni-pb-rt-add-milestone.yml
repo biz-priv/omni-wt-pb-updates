@@ -24,7 +24,6 @@ function:
           maximumRetryAttempts: 3 
 
   environment:
-    # ERROR_SNS_TOPIC_ARN: ${ssm:/omni-pb-rt/${self:provider.stage}/error-notification/arn}
     ERROR_SNS_TOPIC_ARN: ${ssm:/omni-power-broker/${self:provider.stage}/error-notification/sns/arn}
     ENVIRONMENT: ${self:provider.stage}
     ORDERS_TABLE_NAME: ${ssm:/omni-pb-rt/${self:provider.stage}/orders/db}
@@ -36,4 +35,5 @@ function:
     ADD_MILESTONE_URL: ${ssm:/omni-ivia/${self:provider.stage}/addMilestone/url} 
     ADD_MILESTONE_URL_2: ${ssm:/omni-ivia/${self:provider.stage}/addMilestone/console/url}
     WT_SOAP_USERNAME: ${ssm:/omni-dw/${self:provider.stage}/wt/soap/username}
+    ADDRESS_MAPPING_TABLE: ${ssm:/omni-ivia/${self:provider.stage}/address-mapping/ddb.tableName}
 

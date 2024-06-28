@@ -221,6 +221,79 @@ async function getStop(order_id) {
     }
 }
 
+async function queryWithPartitionKey(tableName, key) {
+    let params;
+    try {
+      const [expression, expressionAtts] = await getQueryExpression(key);
+      params = {
+        TableName: tableName,
+        KeyConditionExpression: expression,
+        ExpressionAttributeValues: expressionAtts,
+      };
+      return await dynamodb.query(params).promise();
+    } catch (e) {
+      console.error(
+        "Query Item With Partition key Error: ",
+        e,
+        "\nGet params: ",
+        params
+      );
+      throw "QueryItemError";
+    }
+}
+
+// function consigneeIsCustomer(addressMapRes, FK_ServiceId) {
+//     let check = 0;
+//     if (["HS", "TL"].includes(FK_ServiceId)) {
+//       check =
+//         addressMapRes.cc_con_zip === "1" &&
+//         (addressMapRes.cc_con_address === "1" ||
+//           addressMapRes.cc_con_google_match === "1")
+//           ? true
+//           : false;
+//     } else if (FK_ServiceId === "MT") {
+//       check =
+//         addressMapRes.csh_con_zip === "1" &&
+//         (addressMapRes.csh_con_address === "1" ||
+//           addressMapRes.csh_con_google_match === "1")
+//           ? true
+//           : false;
+//     }
+//     return check;
+// }
+
+async function consigneeIsCustomer(FK_OrderNo, type) {
+    // Query the address mapping table
+    let addressMapRes = await queryWithPartitionKey(ADDRESS_MAPPING_TABLE, {
+        FK_OrderNo,
+    });
+
+    console.log("addressMapRes", addressMapRes);
+    if (addressMapRes.Items.length === 0) {
+        console.log("Data not found on address mapping table for FK_OrderNo", FK_OrderNo);
+        return false; // No data found, return false
+    } else {
+        addressMapRes = addressMapRes.Items[0];
+    }
+
+    let check = false;
+    if (type === 'CONSOLE') {
+        check =
+            addressMapRes.cc_con_zip === "1" &&
+            (addressMapRes.cc_con_address === "1" || addressMapRes.cc_con_google_match === "1")
+                ? true
+                : false;
+    } else if (type === 'MULTISTOP') {
+        check =
+            addressMapRes.csh_con_zip === "1" &&
+            (addressMapRes.csh_con_address === "1" || addressMapRes.csh_con_google_match === "1")
+                ? true
+                : false;
+    }
+    return check;
+}
+
+
 module.exports = {
     getMovementOrder,
     getOrder,
@@ -229,5 +302,7 @@ module.exports = {
     getLive204OrderStatus,
     getOrderStatus,
     getConsolStatus,
-    getStop
+    getStop,
+    queryWithPartitionKey,
+    consigneeIsCustomer
 };

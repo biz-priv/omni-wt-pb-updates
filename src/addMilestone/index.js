@@ -1,12 +1,9 @@
 const AWS = require('aws-sdk');
 const _ = require('lodash');
 const {
-  getMovementOrder,
-  getOrder,
-  updateMilestone,
-  getLive204OrderStatus,
   getOrderStatus,
   getConsolStatus,
+  consigneeIsCustomer
 } = require('../shared/dynamo');
 const moment = require('moment-timezone');
 const axios = require('axios');
@@ -47,7 +44,7 @@ module.exports.handler = async (event, context) => {
     let dataResponse;
     try {
       const newUnmarshalledRecord = AWS.DynamoDB.Converter.unmarshall(record.dynamodb.NewImage);
-      
+
       itemObj.Id = _.get(newUnmarshalledRecord, 'Id');
       itemObj.OrderId = _.get(newUnmarshalledRecord, 'OrderId');
       itemObj.Housebill = _.get(newUnmarshalledRecord, 'Housebill');
@@ -90,6 +87,23 @@ module.exports.handler = async (event, context) => {
       } else if (type === 'CONSOLE') {
         console.info('This is of Type CONSOLE');
 
+        if (itemObj.StatusCode === 'DEL') {
+          const conIsCu = consigneeIsCustomer(itemObj.FK_OrderNo, type);
+          if (conIsCu) {
+            console.log('send event DEL');
+            itemObj.StatusCode = 'DEL';
+          } else {
+            itemObj.StatusCode = 'AAD';
+          }
+        } else if (itemObj.StatusCode === 'DWP') {
+          const conIsCu = consigneeIsCustomer(itemObj.FK_OrderNo, type);
+          if (conIsCu) {
+            console.log('send event DWP');
+            itemObj.StatusCode = 'DWP';
+          } else {
+            itemObj.StatusCode = 'AAD';
+          }
+        }
         XMLpayLoad = await generateConsolXmlPayload(itemObj);
         console.info('XML Payload Generated :', XMLpayLoad);
 
@@ -106,6 +120,24 @@ module.exports.handler = async (event, context) => {
         );
       } else {
         console.info('This is of Type Multistop');
+
+        if (itemObj.StatusCode === 'DEL') {
+          const conIsCu = consigneeIsCustomer(itemObj.ConsolNo, 'MULTISTOP');
+          if (conIsCu) {
+            console.log('send event DEL');
+            itemObj.StatusCode = 'DEL';
+          } else {
+            itemObj.StatusCode = 'AAD';
+          }
+        } else if (itemObj.StatusCode === 'DWP') {
+          const conIsCu = consigneeIsCustomer(itemObj.ConsolNo, 'MULTISTOP');
+          if (conIsCu) {
+            console.log('send event DWP');
+            itemObj.StatusCode = 'DWP';
+          } else {
+            itemObj.StatusCode = 'AAD';
+          }
+        }
 
         const consolStatusValidationData = await getConsolStatus(itemObj.OrderId);
         console.info('Data Coming from 204 Consol Status Table:', consolStatusValidationData);
