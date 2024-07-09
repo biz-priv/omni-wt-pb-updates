@@ -2,7 +2,7 @@ const AWS = require('aws-sdk');
 const dynamoDB = new AWS.DynamoDB.DocumentClient();
 const _ = require('lodash');
 
-const { ORDERS_TABLE_NAME, MOVEMENT_ORDER_TABLE_NAME, ADD_MILESTONE_TABLE_NAME, ORDER_STATUS_TABLE_NAME,CONSOL_STATUS_TABLE_NAME } = process.env;
+const { ORDERS_TABLE_NAME, MOVEMENT_ORDER_TABLE_NAME, ADD_MILESTONE_TABLE_NAME, ORDER_STATUS_TABLE_NAME,CONSOL_STATUS_TABLE_NAME, ADDRESS_MAPPING_TABLE } = process.env;
 
 async function query(params) {
     async function helper(params) {
