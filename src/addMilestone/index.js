@@ -88,7 +88,7 @@ module.exports.handler = async (event, context) => {
         console.info('This is of Type CONSOLE');
 
         if (itemObj.StatusCode === 'DEL') {
-          const conIsCu = consigneeIsCustomer(itemObj.FK_OrderNo, type);
+          const conIsCu = await consigneeIsCustomer(itemObj.FK_OrderNo, type);
           if (conIsCu) {
             console.log('send event DEL');
             itemObj.StatusCode = 'DEL';
@@ -96,7 +96,7 @@ module.exports.handler = async (event, context) => {
             itemObj.StatusCode = 'AAD';
           }
         } else if (itemObj.StatusCode === 'DWP') {
-          const conIsCu = consigneeIsCustomer(itemObj.FK_OrderNo, type);
+          const conIsCu = await consigneeIsCustomer(itemObj.FK_OrderNo, type);
           if (conIsCu) {
             console.log('send event DWP');
             itemObj.StatusCode = 'DWP';
