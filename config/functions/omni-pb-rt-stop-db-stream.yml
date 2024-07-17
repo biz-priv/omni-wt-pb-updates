@@ -5,19 +5,19 @@ function:
   description: OMNI PB Real Time Stop Table Stream Process - ${self:provider.stage}
   runtime: nodejs18.x
   layers:
-    - {Ref: NodeModulesLambdaLayer}
+    - { Ref: NodeModulesLambdaLayer }
   timeout: 600
   package:
     patterns:
       - '!**/*'
       - 'src/stop/index.js'
       - 'src/shared/dynamo.js'
- 
+
   events:
-      - stream:
-          arn: arn:aws:dynamodb:us-east-1:332281781429:table/omni-pb-rt-stop-dev/stream/2024-05-09T20:02:58.575
-          batchSize: 1
-          maximumRetryAttempts: 3
+    - stream:
+        arn: arn:aws:dynamodb:us-east-1:332281781429:table/omni-pb-rt-stop-dev/stream/2024-05-09T20:02:58.575
+        batchSize: 1
+        maximumRetryAttempts: 1
 
   environment:
     MOVEMENT_DB: 'omni-pb-rt-movement-dev'
@@ -25,4 +25,5 @@ function:
     MOVEMENT_ORDER_TABLE_NAME: ${ssm:/omni-pb-rt/${self:provider.stage}/movement-order/db}
     MOVEMENT_TABLE_NAME: ${ssm:/omni-pb-rt/${self:provider.stage}/movement/db}
     ADD_MILESTONE_TABLE_NAME: ${ssm:/omni-pb-214/${self:provider.stage}/add-milestone/db}
-
+    ORDER_STATUS_TABLE_NAME: ${ssm:/omni-204-create-shipment/${self:provider.stage}/status/ddb.name}
+    CONSOL_STATUS_TABLE_NAME: ${ssm:/omni-live-204/${self:provider.stage}/consol-status/ddb.tableName}

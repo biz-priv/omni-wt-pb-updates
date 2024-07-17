@@ -1,23 +1,28 @@
+'use strict';
+
 const AWS = require('aws-sdk');
 const _ = require('lodash');
-const { getMovementOrder, getOrder, updateMilestone } = require('../shared/dynamo');
+const {
+  getMovementOrder,
+  getOrder,
+  updateMilestone,
+  getShipmentDetails,
+} = require('../shared/dynamo');
 const moment = require('moment-timezone');
+
 const sns = new AWS.SNS();
 const axios = require('axios');
 
 const { ERROR_SNS_TOPIC_ARN, ADD_MILESTONE_TABLE_NAME, ENVIRONMENT } = process.env;
 
-let functionName;
-
-module.exports.handler = async (event, context) => {
+module.exports.handler = async (event) => {
   let Id;
   let StatusCode;
   let Housebill;
 
-  console.info('Event coming in ',event)
+  console.info('Event coming in ', event);
 
   try {
-    functionName = _.get(context, 'functionName');
     const records = _.get(event, 'Records', []);
     const promises = records.map(async (record) => {
       const newUnmarshalledRecord = AWS.DynamoDB.Converter.unmarshall(record.dynamodb.NewImage);
@@ -31,23 +36,36 @@ module.exports.handler = async (event, context) => {
       console.info('oldBrokerageStatus:', oldBrokerageStatus);
       console.info('newBrokerageStatus:', newBrokerageStatus);
 
-      let oldStatus = _.get(oldUnmarshalledRecord, 'status');
-      let newStatus = _.get(newUnmarshalledRecord, 'status');
+      const oldStatus = _.get(oldUnmarshalledRecord, 'status');
+      const newStatus = _.get(newUnmarshalledRecord, 'status');
       console.info('oldStatus:', oldStatus);
       console.info('newStatus:', newStatus);
 
       console.info('brokerage_status coming from movement table is:', newBrokerageStatus);
 
+      const orderId = await getMovementOrder(Id);
+      Housebill = await getOrder(orderId);
+
+      const shipmentDetails = await getShipmentDetails({ shipmentId: orderId });
+      console.info(
+        '🙂 -> file: index.js:45 -> promises -> shipmentDetails:',
+        JSON.stringify(shipmentDetails)
+      );
+
+      const type = _.get(shipmentDetails, 'Type');
+      console.info('🙂 -> file: index.js:48 -> promises -> type:', type);
+      if (!type || !shipmentDetails) {
+        console.info('Shipment is not created through our system. SKIPPING.');
+        return 'Shipment is not created through our system. SKIPPING.';
+      }
+
       if (oldBrokerageStatus !== 'DISPATCH' && newBrokerageStatus === 'DISPATCH') {
-        StatusCode = 'TLD'; 
+        StatusCode = 'TLD';
 
         console.info('Value of Id', Id);
 
-        const order_id = await getMovementOrder(Id);
-        Housebill = await getOrder(order_id);
-
         const finalPayload = {
-          OrderId: order_id,
+          OrderId: orderId,
           StatusCode,
           Housebill: Housebill.toString(),
           EventDateTime: moment.tz('America/Chicago').format(),
@@ -55,6 +73,7 @@ module.exports.handler = async (event, context) => {
           Response: '',
           ErrorMessage: '',
           Status: 'READY',
+          Type: type,
         };
 
         console.info(finalPayload);
@@ -66,11 +85,8 @@ module.exports.handler = async (event, context) => {
 
         console.info('Value of Id', Id);
 
-        const order_id = await getMovementOrder(Id);
-        Housebill = await getOrder(order_id);
-
         const finalPayload = {
-          OrderId: order_id,
+          OrderId: orderId,
           StatusCode,
           Housebill: Housebill.toString(),
           EventDateTime: moment.tz('America/Chicago').format(),
@@ -78,17 +94,15 @@ module.exports.handler = async (event, context) => {
           Response: '',
           ErrorMessage: '',
           Status: 'READY',
+          Type: type,
         };
 
         console.info(finalPayload);
         await updateMilestone(finalPayload);
       }
 
-      if (oldStatus !== 'D' && newStatus === 'D') {
+      if (oldStatus !== 'D' && newStatus === 'D' && !['MULTI-STOP', 'CONSOL'].includes(type)) {
         const movementId = Id;
-
-        const order_id = await getMovementOrder(Id);
-        Housebill = await getOrder(order_id);
 
         if (!movementId) {
           return {
@@ -97,7 +111,7 @@ module.exports.handler = async (event, context) => {
           };
         }
 
-        const podStatus = await checkForPod(movementId, order_id);
+        const podStatus = await checkForPod(movementId, orderId);
 
         let resultMessage;
 
@@ -110,9 +124,10 @@ module.exports.handler = async (event, context) => {
         }
 
         console.info('WT status code :', StatusCode);
+        console.info('resultMessage :', resultMessage);
 
         const finalPayload = {
-          OrderId: order_id,
+          OrderId: orderId,
           StatusCode,
           Housebill: Housebill.toString(),
           EventDateTime: moment.tz('America/Chicago').format(),
@@ -120,11 +135,13 @@ module.exports.handler = async (event, context) => {
           Response: '',
           ErrorMessage: '',
           Status: 'READY',
+          Type: type,
         };
 
         console.info(finalPayload);
         await updateMilestone(finalPayload);
       }
+      return true;
     });
 
     await Promise.all(promises);
@@ -171,27 +188,27 @@ async function checkForPod(movementId, orderId) {
     };
     const rowType = 'O';
 
-    console.log('movementID is ',movementId)
-    console.log('orderId is ',orderId)
-    console.log('Entered POD STATUS CHECK function')
+    console.info('movementID is ', movementId);
+    console.info('orderId is ', orderId);
+    console.info('Entered POD STATUS CHECK function');
 
     // Basic Auth header
-    const authHeader = 'Basic ' + Buffer.from(username + ':' + password).toString('base64');
+    const authHeader = `Basic ${Buffer.from(`${username}:${password}`).toString('base64')}`;
 
     // Get POD
     const url = `https://tms-lvlp.loadtracking.com:6790/ws/api/images/${rowType}/${orderId}`;
 
-    console.info('URL trying to fetch the details:',url)
+    console.info('URL trying to fetch the details:', url);
 
     const response = await axios.get(url, {
       headers: { ...mcleodHeaders, Authorization: authHeader },
     });
 
-    console.info('RESPONSE: ', response)
-    console.info('RESPONSE Status: ', response.status)
+    console.info('RESPONSE: ', response);
+    console.info('RESPONSE Status: ', response.status);
 
     if (response.status !== 200) {
-      let errorMessage = `Failed to get POD for order ${orderId}. Status code: ${response.status}`;
+      const errorMessage = `Failed to get POD for order ${orderId}. Status code: ${response.status}`;
       await publishSNSTopic({
         subject: `PB ADD MILESTONE ERROR NOTIFICATION - ${ENVIRONMENT} ~ id: ${movementId}`,
         message: errorMessage,
@@ -199,33 +216,33 @@ async function checkForPod(movementId, orderId) {
       return 'N';
     }
 
-    console.log('1st If Condition passed')
+    console.info('1st If Condition passed');
 
     const output = response.data;
 
-    console.log('Output tagged:',output)
+    console.info('Output tagged:', output);
 
-    let photoType;
     let exists;
 
     if (!output) throw new Error('Empty response');
 
-    photoType = output[0].descr.toUpperCase();
+    const photoType = output[0].descr.toUpperCase();
 
-    //Check to see if there is a POD
+    // Check to see if there is a POD
     if (photoType === '01-BILL OF LADING') {
       exists = 'Y';
     } else {
       exists = 'N';
     }
     console.info('value in exists :', exists);
-    console.log(`Does a POD for movement ${movementId} exist? ${exists}`);
+    console.info(`Does a POD for movement ${movementId} exist? ${exists}`);
     return exists;
   } catch (error) {
-    let errorMessage = `Error processing POD data: ${error.message}`;
+    const errorMessage = `Error processing POD data: ${error.message}`;
     await publishSNSTopic({
       subject: `PB ADD MILESTONE ERROR NOTIFICATION - ${ENVIRONMENT} ~ id: ${movementId}`,
       message: errorMessage,
     });
   }
+  return true;
 }

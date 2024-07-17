@@ -5,23 +5,23 @@ function:
   description: OMNI PB Real Time Test Lambda - ${self:provider.stage}
   runtime: nodejs18.x
   layers:
-    - {Ref: NodeModulesLambdaLayer}
+    - { Ref: NodeModulesLambdaLayer }
   timeout: 600
   package:
     patterns:
       - '!**/*'
       - 'src/addMilestone/index.js'
       - 'src/shared/dynamo.js'
- 
+
   events:
-      - stream:
-          type: dynamodb
-          arn: "arn:aws:dynamodb:us-east-1:332281781429:table/omni-pb-214-add-milestone-dev/stream/2024-05-09T22:16:02.791"
-          batchSize: 1
-          enabled: true
-          filterPatterns:
+    - stream:
+        type: dynamodb
+        arn: 'arn:aws:dynamodb:us-east-1:332281781429:table/omni-pb-214-add-milestone-dev/stream/2024-05-09T22:16:02.791'
+        batchSize: 1
+        enabled: true
+        filterPatterns:
           - { dynamodb: { NewImage: { Status: { S: ['READY'] } } } }
-          maximumRetryAttempts: 3 
+        maximumRetryAttempts: 1
 
   environment:
     ERROR_SNS_TOPIC_ARN: ${ssm:/omni-power-broker/${self:provider.stage}/error-notification/sns/arn}
@@ -32,8 +32,9 @@ function:
     ADD_MILESTONE_TABLE_NAME: ${ssm:/omni-pb-214/${self:provider.stage}/add-milestone/db}
     ORDER_STATUS_TABLE_NAME: ${ssm:/omni-204-create-shipment/${self:provider.stage}/status/ddb.name}
     CONSOL_STATUS_TABLE_NAME: ${ssm:/omni-live-204/${self:provider.stage}/consol-status/ddb.tableName}
-    ADD_MILESTONE_URL: ${ssm:/omni-ivia/${self:provider.stage}/addMilestone/url} 
+    ADD_MILESTONE_URL: ${ssm:/omni-ivia/${self:provider.stage}/addMilestone/url}
     ADD_MILESTONE_URL_2: ${ssm:/omni-ivia/${self:provider.stage}/addMilestone/console/url}
     WT_SOAP_USERNAME: ${ssm:/omni-dw/${self:provider.stage}/wt/soap/username}
     ADDRESS_MAPPING_TABLE: ${ssm:/omni-ivia/${self:provider.stage}/address-mapping/ddb.tableName}
-
+    SHIPMENT_APAR_TABLE: ${ssm:/omni-wt-rt-updates/${self:provider.stage}/shipment-apar/ddb.tableName}
+    SHIPMENT_APAR_INDEX_KEY_NAME: ${ssm:/omni-wt-rt-updates/${self:provider.stage}/shipment-apar/ddb.ConsolNoIndex}

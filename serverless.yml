@@ -1,4 +1,4 @@
-service: omni-214-pb-milestone-updates 
+service: omni-214-pb-milestone-updates
 
 provider:
   name: aws
@@ -45,5 +45,3 @@ functions:
   omni-pb-rt-movement-stream: ${file(config/functions/omni-pb-rt-movement-stream.yml):function}
   omni-pb-rt-stop-db-stream: ${file(config/functions/omni-pb-rt-stop-db-stream.yml):function}
   add-milestone: ${file(config/functions/omni-pb-rt-add-milestone.yml):function}
-
-

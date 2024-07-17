@@ -5,25 +5,27 @@ function:
   description: OMNI PB Real Time Movement Stream Process - ${self:provider.stage}
   runtime: nodejs18.x
   layers:
-    - {Ref: NodeModulesLambdaLayer}
+    - { Ref: NodeModulesLambdaLayer }
   timeout: 600
   package:
     patterns:
       - '!**/*'
       - 'src/movement/index.js'
       - 'src/shared/dynamo.js'
- 
+
   events:
-      - stream:
-          arn: ${ssm:/omni-pb-rt/${self:provider.stage}/movement/ddb.streamArn}
-          batchSize: 1
-          maximumRetryAttempts: 3
+    - stream:
+        arn: ${ssm:/omni-pb-rt/${self:provider.stage}/movement/ddb.streamArn}
+        batchSize: 1
+        maximumRetryAttempts: 1
 
   environment:
     ENVIRONMENT: ${self:provider.stage}
-    # ERROR_SNS_TOPIC_ARN: ${ssm:/omni-pb-rt/${self:provider.stage}/error-notification/arn}
     ERROR_SNS_TOPIC_ARN: ${ssm:/omni-power-broker/${self:provider.stage}/error-notification/sns/arn}
     ORDERS_TABLE_NAME: ${ssm:/omni-pb-rt/${self:provider.stage}/orders/db}
-    MOVEMENT_ORDER_TABLE_NAME: ${ssm:/omni-pb-rt/${self:provider.stage}/movement-order/db}
     MOVEMENT_TABLE_NAME: ${ssm:/omni-pb-rt/${self:provider.stage}/movement/db}
     ADD_MILESTONE_TABLE_NAME: ${ssm:/omni-pb-214/${self:provider.stage}/add-milestone/db}
+    MOVEMENT_DB: 'omni-pb-rt-movement-dev'
+    MOVEMENT_ORDER_TABLE_NAME: ${ssm:/omni-pb-rt/${self:provider.stage}/movement-order/db}
+    ORDER_STATUS_TABLE_NAME: ${ssm:/omni-204-create-shipment/${self:provider.stage}/status/ddb.name}
+    CONSOL_STATUS_TABLE_NAME: ${ssm:/omni-live-204/${self:provider.stage}/consol-status/ddb.tableName}
