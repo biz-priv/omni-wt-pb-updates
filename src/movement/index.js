@@ -9,11 +9,10 @@ const {
   getShipmentDetails,
 } = require('../shared/dynamo');
 const moment = require('moment-timezone');
+const { checkForPod, publishSNSTopic } = require('../shared/apis');
+const { types, milestones } = require('../shared/helper');
 
-const sns = new AWS.SNS();
-const axios = require('axios');
-
-const { ERROR_SNS_TOPIC_ARN, ADD_MILESTONE_TABLE_NAME, ENVIRONMENT } = process.env;
+const { ADD_MILESTONE_TABLE_NAME, ENVIRONMENT } = process.env;
 
 module.exports.handler = async (event) => {
   let Id;
@@ -60,7 +59,7 @@ module.exports.handler = async (event) => {
       }
 
       if (oldBrokerageStatus !== 'DISPATCH' && newBrokerageStatus === 'DISPATCH') {
-        StatusCode = 'TLD';
+        StatusCode = milestones.TLD;
 
         console.info('Value of Id', Id);
 
@@ -81,7 +80,7 @@ module.exports.handler = async (event) => {
       }
 
       if (oldStatus === 'A' && newStatus === 'C') {
-        StatusCode = 'BOO';
+        StatusCode = milestones.BOO;
 
         console.info('Value of Id', Id);
 
@@ -101,7 +100,11 @@ module.exports.handler = async (event) => {
         await updateMilestone(finalPayload);
       }
 
-      if (oldStatus !== 'D' && newStatus === 'D' && !['MULTI-STOP', 'CONSOL'].includes(type)) {
+      if (
+        oldStatus !== 'D' &&
+        newStatus === 'D' &&
+        ![types.MULTISTOP, types.CONSOL].includes(type)
+      ) {
         const movementId = Id;
 
         if (!movementId) {
@@ -111,16 +114,16 @@ module.exports.handler = async (event) => {
           };
         }
 
-        const podStatus = await checkForPod(movementId, orderId);
+        const podStatus = await checkForPod(orderId);
 
         let resultMessage;
 
         if (podStatus === 'Y') {
           resultMessage = 'POD is Available';
-          StatusCode = 'DEL';
+          StatusCode = milestones.DEL;
         } else {
           resultMessage = 'POD is Unavailable';
-          StatusCode = 'DWP';
+          StatusCode = milestones.DWP;
         }
 
         console.info('WT status code :', StatusCode);
@@ -162,87 +165,3 @@ module.exports.handler = async (event) => {
     throw error;
   }
 };
-
-async function publishSNSTopic({ subject, message }) {
-  try {
-    const params = {
-      TopicArn: ERROR_SNS_TOPIC_ARN,
-      Subject: subject,
-      Message: message,
-    };
-
-    await sns.publish(params).promise();
-  } catch (error) {
-    console.error('Error publishing to SNS topic:', error);
-    throw error;
-  }
-}
-
-async function checkForPod(movementId, orderId) {
-  try {
-    const username = 'apiuser';
-    const password = 'lvlpapiuser';
-    const mcleodHeaders = {
-      'Accept': 'application/json',
-      'Content-Type': 'application/json',
-    };
-    const rowType = 'O';
-
-    console.info('movementID is ', movementId);
-    console.info('orderId is ', orderId);
-    console.info('Entered POD STATUS CHECK function');
-
-    // Basic Auth header
-    const authHeader = `Basic ${Buffer.from(`${username}:${password}`).toString('base64')}`;
-
-    // Get POD
-    const url = `https://tms-lvlp.loadtracking.com:6790/ws/api/images/${rowType}/${orderId}`;
-
-    console.info('URL trying to fetch the details:', url);
-
-    const response = await axios.get(url, {
-      headers: { ...mcleodHeaders, Authorization: authHeader },
-    });
-
-    console.info('RESPONSE: ', response);
-    console.info('RESPONSE Status: ', response.status);
-
-    if (response.status !== 200) {
-      const errorMessage = `Failed to get POD for order ${orderId}. Status code: ${response.status}`;
-      await publishSNSTopic({
-        subject: `PB ADD MILESTONE ERROR NOTIFICATION - ${ENVIRONMENT} ~ id: ${movementId}`,
-        message: errorMessage,
-      });
-      return 'N';
-    }
-
-    console.info('1st If Condition passed');
-
-    const output = response.data;
-
-    console.info('Output tagged:', output);
-
-    let exists;
-
-    if (!output) throw new Error('Empty response');
-
-    const photoType = output[0].descr.toUpperCase();
-
-    // Check to see if there is a POD
-    if (photoType === '01-BILL OF LADING') {
-      exists = 'Y';
-    } else {
-      exists = 'N';
-    }
-    console.info('value in exists :', exists);
-    console.info(`Does a POD for movement ${movementId} exist? ${exists}`);
-    return exists;
-  } catch (error) {
-    const errorMessage = `Error processing POD data: ${error.message}`;
-    await publishSNSTopic({
-      subject: `PB ADD MILESTONE ERROR NOTIFICATION - ${ENVIRONMENT} ~ id: ${movementId}`,
-      message: errorMessage,
-    });
-  }
-  return true;
-}

@@ -4,6 +4,7 @@ const AWS = require('aws-sdk');
 
 const dynamoDB = new AWS.DynamoDB.DocumentClient();
 const _ = require('lodash');
+const { types } = require('./helper');
 
 const {
   ORDERS_TABLE_NAME,
@@ -14,6 +15,9 @@ const {
   ADDRESS_MAPPING_TABLE,
   SHIPMENT_APAR_TABLE,
   SHIPMENT_APAR_INDEX_KEY_NAME,
+  CONSOL_STOP_HEADERS,
+  CONSOL_STOP_ITEMS,
+  SHIPMENT_HEADER_TABLE,
 } = process.env;
 
 async function query(params) {
@@ -40,11 +44,12 @@ async function query(params) {
 async function getMovementOrder(id) {
   const movementParams = {
     TableName: MOVEMENT_ORDER_TABLE_NAME,
-    IndexName: 'movement_id-index',
+    IndexName: 'movement_id-index', // TODO: Move the index name to ssm
     KeyConditionExpression: 'movement_id = :movement_id',
     ExpressionAttributeValues: {
       ':movement_id': id,
     },
+    ProjectionExpression: 'order_id',
   };
 
   try {
@@ -69,9 +74,9 @@ async function getOrder(orderId) {
     ExpressionAttributeValues: {
       ':id': orderId,
     },
+    ProjectionExpression: 'blnum',
   };
-
-  console.info('Fetching data from:', orderParams.TableName);
+  console.info('🙂 -> file: dynamo.js:82 -> getOrder -> orderParams:', orderParams);
 
   try {
     const items = await query(orderParams);
@@ -105,7 +110,7 @@ async function updateMilestone(finalPayload) {
 async function getMovement(id, stopType) {
   const movementParams = {
     TableName: process.env.MOVEMENT_DB,
-    IndexName: stopType === 'PU' ? 'OriginStopIndex' : 'DestStopIndex',
+    IndexName: stopType === 'PU' ? 'OriginStopIndex' : 'DestStopIndex', // TODO: Move the index name to ssm
     KeyConditionExpression: stopType === 'PU' ? 'origin_stop_id = :id' : 'dest_stop_id = :id',
     FilterExpression: '#status IN (:statusP, :statusC)',
     ExpressionAttributeNames: {
@@ -116,6 +121,7 @@ async function getMovement(id, stopType) {
       ':statusP': 'P',
       ':statusC': 'C',
     },
+    ProjectionExpression: 'id',
   };
   console.info('🙂 -> file: dynamo.js:118 -> getMovement -> movementParams:', movementParams);
 
@@ -123,7 +129,7 @@ async function getMovement(id, stopType) {
     const result = await query(movementParams);
 
     if (result.length > 0) {
-      return _.get(result[0], 'id', '');
+      return _.get(result, '[0].id', '');
     }
     throw new Error('No Record found in Movement Table for id: ', id);
   } catch (error) {
@@ -132,39 +138,15 @@ async function getMovement(id, stopType) {
   }
 }
 
-async function getLive204OrderStatus(Housebill) {
-  const params = {
-    TableName: 'live-204-order-status-dev',
-    IndexName: 'Housebill-index',
-    KeyConditionExpression: 'Housebill = :Housebill',
-    ExpressionAttributeValues: {
-      ':Housebill': Housebill,
-    },
-  };
-
-  console.info('Fetching data from:', params.TableName);
-
-  try {
-    const items = await query(params);
-
-    if (items.length > 0) {
-      return items[0];
-    }
-    throw new Error('No Record found in 204 Orders Dynamo Table for Housebill:', Housebill);
-  } catch (error) {
-    console.error('Error in getLive204OrderStatus function:', error);
-    throw error;
-  }
-}
-
 async function getOrderStatus(id) {
   const orderStatusParams = {
     TableName: ORDER_STATUS_TABLE_NAME,
-    IndexName: 'ShipmentId-index',
+    IndexName: 'ShipmentId-index', // TODO: Move the index name to ssm
     KeyConditionExpression: 'ShipmentId = :ShipmentId',
     ExpressionAttributeValues: {
       ':ShipmentId': id,
     },
+    ProjectionExpression: 'Type, FK_OrderNo',
   };
 
   try {
@@ -184,11 +166,12 @@ async function getOrderStatus(id) {
 async function getConsolStatus(id) {
   const consolStatusParams = {
     TableName: CONSOL_STATUS_TABLE_NAME,
-    IndexName: 'ShipmentId-index',
+    IndexName: 'ShipmentId-index', // TODO: Move the index name to ssm
     KeyConditionExpression: 'ShipmentId = :ShipmentId',
     ExpressionAttributeValues: {
       ':ShipmentId': id,
     },
+    ProjectionExpression: 'ConsolNo, Type',
   };
 
   try {
@@ -207,14 +190,15 @@ async function getConsolStatus(id) {
 
 async function getStop(orderId) {
   const consolStatusParams = {
-    TableName: 'omni-pb-rt-stop-dev',
-    IndexName: 'order_id-index',
+    TableName: 'omni-pb-rt-stop-dev', // TODO: Move the table name to ssm
+    IndexName: 'order_id-index', // TODO: Move the index name to ssm
     KeyConditionExpression: 'order_id = :order_id',
     ExpressionAttributeValues: {
       ':order_id': orderId,
     },
+    ProjectionExpression: 'id',
   };
-
+  console.info('🙂 -> file: dynamo.js:220 -> getStop -> consolStatusParams:', consolStatusParams);
   try {
     const items = await query(consolStatusParams);
 
@@ -259,12 +243,12 @@ async function consigneeIsCustomer(fkOrderNo, type) {
   addressMapRes = addressMapRes.Items[0];
 
   let check = false;
-  if (type === 'CONSOLE') {
+  if (type === types.CONSOL) {
     check = !!(
       addressMapRes.cc_con_zip === '1' &&
       (addressMapRes.cc_con_address === '1' || addressMapRes.cc_con_google_match === '1')
     );
-  } else if (type === 'MULTISTOP') {
+  } else if (type === types.MULTISTOP) {
     check = !!(
       addressMapRes.csh_con_zip === '1' &&
       (addressMapRes.csh_con_address === '1' || addressMapRes.csh_con_google_match === '1')
@@ -291,7 +275,7 @@ async function getShipmentDetails({ shipmentId }) {
   }
   const consolStatusRes = await getConsolStatus(shipmentId);
   if (consolStatusRes) {
-    return { ...consolStatusRes, Type: 'MULTI-STOP' };
+    return { ...consolStatusRes, Type: types.MULTISTOP };
   }
   return {};
 }
@@ -307,6 +291,7 @@ async function getAparDataByConsole({ orderNo }) {
         ':ConsolNo': String(orderNo),
         ':consolidation': 'N',
       },
+      ProjectionExpression: 'FK_OrderNo',
     };
     const result = await query(shipmentAparParams);
     console.info('🙂 -> file: dynamo.js:313 -> getAparDataByConsole -> result:', result);
@@ -317,12 +302,75 @@ async function getAparDataByConsole({ orderNo }) {
   }
 }
 
+async function getConsolStopHeader({ consolNo, stopSeq }) {
+  try {
+    const cshparams = {
+      TableName: CONSOL_STOP_HEADERS,
+      IndexName: 'omni-ivia-FK_ConsolNo-index-dev', // TODO: Move the index name to ssm
+      KeyConditionExpression: 'FK_ConsolNo = :ConsolNo',
+      FilterExpression: 'ConsolStopNumber = :stopSeq',
+      ExpressionAttributeValues: {
+        ':ConsolNo': consolNo.toString(),
+        ':stopSeq': (Number(stopSeq) - 1).toString(),
+      },
+      ProjectionExpression: 'PK_ConsolStopId',
+    };
+    console.info('🙂 -> file: dynamo.js:331 -> getConsolStopHeader -> cshparams:', cshparams);
+    const result = await query(cshparams);
+    return result;
+  } catch (error) {
+    console.info('🙂 -> file: dynamo.js:338 -> getConsolStopHeader -> error:', error);
+    throw error;
+  }
+}
+
+async function getShipmentForSeq({ stopId }) {
+  try {
+    const cstparams = {
+      TableName: CONSOL_STOP_ITEMS,
+      IndexName: 'FK_ConsolStopId-index', // TODO: Move the index name to ssm
+      KeyConditionExpression: 'FK_ConsolStopId = :stopId',
+      ExpressionAttributeValues: {
+        ':stopId': stopId.toString(),
+      },
+      ProjectionExpression: 'FK_OrderNo',
+    };
+    console.info('🙂 -> file: dynamo.js:347 -> getShipmentForSeq -> cstparams:', cstparams);
+    const result = await query(cstparams);
+    return result;
+  } catch (error) {
+    console.info('🙂 -> file: dynamo.js:358 -> getShipmentForSeq -> error:', error);
+    throw error;
+  }
+}
+
+async function getShipmentHeaderData({ orderNo }) {
+  try {
+    const shipmentHeaderParams = {
+      TableName: SHIPMENT_HEADER_TABLE,
+      KeyConditionExpression: 'PK_OrderNo = :orderNo',
+      ExpressionAttributeValues: {
+        ':orderNo': orderNo,
+      },
+      ProjectionExpression: 'Housebill',
+    };
+    console.info(
+      '🙂 -> file: dynamo.js:380 -> getShipmentHeaderData -> shipmentHeaderParams:',
+      shipmentHeaderParams
+    );
+    const result = await query(shipmentHeaderParams);
+    return result;
+  } catch (error) {
+    console.info('🙂 -> file: dynamo.js:358 -> getShipmentForSeq -> error:', error);
+    throw error;
+  }
+}
+
 module.exports = {
   getMovementOrder,
   getOrder,
   updateMilestone,
   getMovement,
-  getLive204OrderStatus,
   getOrderStatus,
   getConsolStatus,
   getStop,
@@ -330,4 +378,7 @@ module.exports = {
   consigneeIsCustomer,
   getShipmentDetails,
   getAparDataByConsole,
+  getShipmentHeaderData,
+  getConsolStopHeader,
+  getShipmentForSeq,
 };

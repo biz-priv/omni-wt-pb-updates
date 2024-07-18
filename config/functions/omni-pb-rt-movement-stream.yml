@@ -11,7 +11,7 @@ function:
     patterns:
       - '!**/*'
       - 'src/movement/index.js'
-      - 'src/shared/dynamo.js'
+      - 'src/shared/*'
 
   events:
     - stream:

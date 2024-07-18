@@ -11,7 +11,7 @@ function:
     patterns:
       - '!**/*'
       - 'src/stop/index.js'
-      - 'src/shared/dynamo.js'
+      - 'src/shared/*'
 
   events:
     - stream:
@@ -27,3 +27,5 @@ function:
     ADD_MILESTONE_TABLE_NAME: ${ssm:/omni-pb-214/${self:provider.stage}/add-milestone/db}
     ORDER_STATUS_TABLE_NAME: ${ssm:/omni-204-create-shipment/${self:provider.stage}/status/ddb.name}
     CONSOL_STATUS_TABLE_NAME: ${ssm:/omni-live-204/${self:provider.stage}/consol-status/ddb.tableName}
+    GET_ORDERS_API_ENDPOINT: ${ssm:/omni-204-create-shipment/${self:provider.stage}/get-orders.url}
+    AUTH: ${ssm:/omni-204-create-shipment/${self:provider.stage}/apis.auth}

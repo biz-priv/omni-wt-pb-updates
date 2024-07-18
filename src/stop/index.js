@@ -3,7 +3,6 @@
 const AWS = require('aws-sdk');
 const _ = require('lodash');
 const {
-  getMovementOrder,
   getOrder,
   updateMilestone,
   getMovement,
@@ -11,14 +10,13 @@ const {
   getShipmentDetails,
 } = require('../shared/dynamo');
 const moment = require('moment-timezone');
+const { getOrders, checkForPod, publishSNSTopic } = require('../shared/apis');
+const { types, milestones } = require('../shared/helper');
 
-const { ERROR_SNS_TOPIC_ARN, ADD_MILESTONE_TABLE_NAME, STAGE } = process.env;
-const sns = new AWS.SNS();
+const { ADD_MILESTONE_TABLE_NAME } = process.env;
 
-let functionName;
-exports.handler = async (event, context) => {
+exports.handler = async (event) => {
   console.info('Event: ', JSON.stringify(event));
-  functionName = context.functionName;
 
   const records = _.get(event, 'Records', []);
   if (_.get(records, 'eventName') === 'INSERT' || _.get(records, 'eventName') === 'REMOVE') {
@@ -60,6 +58,8 @@ exports.handler = async (event, context) => {
       const orderId = _.get(newUnmarshalledRecord, 'order_id', '');
       console.info('Order Id coming from the Event:', orderId);
 
+      Housebill = await getOrder(orderId);
+
       const shipmentDetails = await getShipmentDetails({ shipmentId: orderId });
       console.info(
         '🙂 -> file: index.js:45 -> promises -> shipmentDetails:',
@@ -87,15 +87,19 @@ exports.handler = async (event, context) => {
         newActualArrival !== '' &&
         newStopType === 'PU'
       ) {
-        // if (Number(seqId) - 1 === 0) {
         console.info('The First Pickup of the Consolidation');
-        StatusCode = 'APL';
-        if (['MULTI-STOP'].includes(type)) StatusCode = `APL#${seqId}`;
+        StatusCode = milestones.APL;
+        if ([types.MULTISTOP].includes(type)) StatusCode = `${milestones.APL}#${seqId}`;
         console.info('Sending Status Code: ', StatusCode);
-        const finalPayload = await getPayloadForStopDb(StatusCode, stopId, newStopType, type);
+        const finalPayload = await getPayloadForStopDb(
+          StatusCode,
+          stopId,
+          newStopType,
+          type,
+          orderId,
+          Housebill
+        );
         await updateMilestone(finalPayload);
-        // }
-        // console.info('This is not the first Pickup of the consolidation');
       }
 
       // status Code = TTC
@@ -105,16 +109,30 @@ exports.handler = async (event, context) => {
         newActualDeparture !== '' &&
         newStopType === 'PU'
       ) {
-        StatusCode = 'TTC';
-        if (['MULTI-STOP'].includes(type)) StatusCode = `TTC#${seqId}`;
+        StatusCode = milestones.TTC;
+        if ([types.MULTISTOP].includes(type)) StatusCode = `${milestones.TTC}#${seqId}`;
         console.info('Sending Status Code: ', StatusCode);
-        let finalPayload = await getPayloadForStopDb(StatusCode, stopId, newStopType, type);
+        let finalPayload = await getPayloadForStopDb(
+          StatusCode,
+          stopId,
+          newStopType,
+          type,
+          orderId,
+          Housebill
+        );
         await updateMilestone(finalPayload);
         // adding COB/IN Transit
-        StatusCode = 'COB';
-        if (['MULTI-STOP'].includes(type)) StatusCode = `COB#${seqId}`;
+        StatusCode = milestones.COB;
+        if ([types.MULTISTOP].includes(type)) StatusCode = `${milestones.COB}#${seqId}`;
         console.info('Sending Status Code: ', StatusCode);
-        finalPayload = await getPayloadForStopDb(StatusCode, stopId, newStopType, type);
+        finalPayload = await getPayloadForStopDb(
+          StatusCode,
+          stopId,
+          newStopType,
+          type,
+          orderId,
+          Housebill
+        );
         await updateMilestone(finalPayload);
       }
 
@@ -127,10 +145,17 @@ exports.handler = async (event, context) => {
       ) {
         // if (maxSequenceId - Number(seqId) === 0) {
         console.info('The Last Delivery of the Consolidation');
-        StatusCode = 'AAD';
-        if (['MULTI-STOP'].includes(type)) StatusCode = `COB#${seqId}`;
+        StatusCode = milestones.AAD;
+        if ([types.MULTISTOP].includes(type)) StatusCode = `${milestones.AAD}#${seqId}`;
         console.info('Sending Status Code: ', StatusCode);
-        const finalPayload = await getPayloadForStopDb(StatusCode, stopId, newStopType, type);
+        const finalPayload = await getPayloadForStopDb(
+          StatusCode,
+          stopId,
+          newStopType,
+          type,
+          orderId,
+          Housebill
+        );
         await updateMilestone(finalPayload);
         // }
         // console.info('This is not the last delivery of the consolidation');
@@ -142,18 +167,39 @@ exports.handler = async (event, context) => {
         newActualDeparture !== null &&
         newActualDeparture !== '' &&
         newStopType === 'SO' &&
-        ['MULTI-STOP'].includes(type)
+        [types.MULTISTOP].includes(type)
       ) {
-        StatusCode = `TTC${seqId}`;
+        const podStatus = await checkForPod(orderId);
+
+        let resultMessage;
+
+        if (podStatus === 'Y') {
+          resultMessage = 'POD is Available';
+          StatusCode = milestones.DEL;
+        } else {
+          resultMessage = 'POD is Unavailable';
+          StatusCode = milestones.DWP;
+        }
+
+        console.info('WT status code :', StatusCode);
+        console.info('resultMessage :', resultMessage);
+        StatusCode = `${StatusCode}#${seqId}`;
         console.info('Sending Status Code: ', StatusCode);
-        const finalPayload = await getPayloadForStopDb(StatusCode, stopId, newStopType, type);
+        const finalPayload = await getPayloadForStopDb(
+          StatusCode,
+          stopId,
+          newStopType,
+          type,
+          orderId,
+          Housebill
+        );
         await updateMilestone(finalPayload);
       }
 
       // status Code = APP
       if (oldConfirmed !== 'Y' && newConfirmed === 'Y' && newStopType === 'PU') {
-        StatusCode = 'APP';
-        if (['MULTI-STOP'].includes(type)) StatusCode = `COB#${seqId}`;
+        StatusCode = milestones.APP;
+        if ([types.MULTISTOP].includes(type)) StatusCode = `${milestones.APP}#${seqId}`;
         console.info('Sending Status Code: ', StatusCode);
         console.info(
           '🙂 -> file: index.js:140 -> promises -> StatusCode, stopId, newStopType:',
@@ -161,16 +207,30 @@ exports.handler = async (event, context) => {
           stopId,
           newStopType
         );
-        const finalPayload = await getPayloadForStopDb(StatusCode, stopId, newStopType, type);
+        const finalPayload = await getPayloadForStopDb(
+          StatusCode,
+          stopId,
+          newStopType,
+          type,
+          orderId,
+          Housebill
+        );
         await updateMilestone(finalPayload);
       }
 
       // status Code = APD
       if (oldConfirmed !== 'Y' && newConfirmed === 'Y' && newStopType === 'SO') {
-        StatusCode = 'APD';
-        if (['MULTI-STOP'].includes(type)) StatusCode = `COB#${seqId}`;
+        StatusCode = milestones.APD;
+        if ([types.MULTISTOP].includes(type)) StatusCode = `${milestones.APD}#${seqId}`;
         console.info('Sending Status Code: ', StatusCode);
-        const finalPayload = await getPayloadForStopDb(StatusCode, stopId, newStopType, type);
+        const finalPayload = await getPayloadForStopDb(
+          StatusCode,
+          stopId,
+          newStopType,
+          type,
+          orderId,
+          Housebill
+        );
         await updateMilestone(finalPayload);
       }
     } catch (error) {
@@ -195,17 +255,27 @@ exports.handler = async (event, context) => {
   await Promise.all(promises);
 };
 
-async function getPayloadForStopDb(StatusCode, stopId, stopType, type) {
+async function getPayloadForStopDb(StatusCode, stopId, stopType, type, orderId, housebill) {
   try {
-    const movementId = await getMovement(stopId, stopType);
-
-    const orderId = await getMovementOrder(movementId);
-    const Housebill = await getOrder(orderId);
+    let modifiedStopId = stopId;
+    let lastStop;
+    if ([types.MULTISTOP].includes(type)) {
+      const orderDetails = await getOrders({ id: orderId });
+      console.info('🙂 -> file: index.js:253 -> getPayloadForStopDb -> stops:', orderDetails);
+      const stops = _.get(orderDetails, 'stops', []);
+      console.info('🙂 -> file: index.js:256 -> getPayloadForStopDb -> stops:', stops);
+      const firstStop = _.get(stops, '[0].id');
+      console.info('🙂 -> file: index.js:204 -> getPayloadForStopDb -> firstStop:', firstStop);
+      lastStop = _.get(stops, `[${_.size(stops) - 1}].id`);
+      console.info('🙂 -> file: index.js:261 -> getPayloadForStopDb -> lastStop:', lastStop);
+      modifiedStopId = stopType === 'PU' ? firstStop : lastStop;
+    }
+    if (modifiedStopId !== lastStop) await getMovement(modifiedStopId, stopType);
 
     const finalPayload = {
       OrderId: orderId,
       StatusCode,
-      Housebill: Housebill.toString(),
+      Housebill: housebill.toString(),
       EventDateTime: moment.tz('America/Chicago').format(),
       Payload: '',
       Response: '',
@@ -218,21 +288,6 @@ async function getPayloadForStopDb(StatusCode, stopId, stopType, type) {
     return finalPayload;
   } catch (error) {
     console.error('Error in getPayloadForStopDb function: ', error);
-    throw error;
-  }
-}
-
-async function publishSNSTopic({ Id, message }) {
-  try {
-    const params = {
-      TopicArn: ERROR_SNS_TOPIC_ARN,
-      Subject: `PB ADD MILESTONE ERROR NOTIFICATION - ${STAGE} ~ Id: ${Id}`,
-      Message: `An error occurred in ${functionName}: ${message}`,
-    };
-
-    await sns.publish(params).promise();
-  } catch (error) {
-    console.error('Error publishing to SNS topic:', error);
     throw error;
   }
 }

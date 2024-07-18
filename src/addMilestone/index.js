@@ -7,25 +7,19 @@ const {
   getConsolStatus,
   consigneeIsCustomer,
   getAparDataByConsole,
+  getShipmentHeaderData,
 } = require('../shared/dynamo');
 const moment = require('moment-timezone');
 const axios = require('axios');
 const { get } = require('lodash');
 const { js2xml } = require('xml-js');
+const { getShipmentForStop, types, milestones } = require('../shared/helper');
+const { publishSNSTopic } = require('../shared/apis');
 
 const dynamoDb = new AWS.DynamoDB.DocumentClient();
-const sns = new AWS.SNS();
 
-const {
-  ENVIRONMENT,
-  ERROR_SNS_TOPIC_ARN,
-  ADD_MILESTONE_TABLE_NAME,
-  WT_SOAP_USERNAME,
-  ADD_MILESTONE_URL,
-  ADD_MILESTONE_URL_2,
-} = process.env;
-
-let functionName;
+const { ADD_MILESTONE_TABLE_NAME, WT_SOAP_USERNAME, ADD_MILESTONE_URL, ADD_MILESTONE_URL_2 } =
+  process.env;
 
 const itemObj = {
   Id: '',
@@ -88,9 +82,9 @@ module.exports.handler = async (event) => {
           XMLpayLoad,
           dataResponse
         );
-      } else if (type === 'CONSOLE') {
+      } else if (type === types.CONSOL) {
         console.info('This is of Type CONSOLE');
-        if (itemObj.StatusCode === 'DEL' || itemObj.StatusCode === 'DWP') {
+        if (itemObj.StatusCode === milestones.DEL || itemObj.StatusCode === milestones.DWP) {
           const consolidatedShipments = await getAparDataByConsole({ orderNo: itemObj.Housebill });
           console.info(
             '🙂 -> file: index.js:93 -> module.exports.handler= -> consolidatedShipments:',
@@ -105,13 +99,19 @@ module.exports.handler = async (event) => {
                 console.info('send event DEL or DWP');
               } else {
                 await updateStatusTable(itemObj.FK_OrderNo, itemObj.StatusCode, 'SKIPPED');
-                itemObj.StatusCode = 'AAD';
+                itemObj.StatusCode = milestones.AAD;
                 console.info('send event AAD');
               }
-              XMLpayLoad = await generateConsolXmlPayload(itemObj);
+              const shipmentHeaderData = await getShipmentHeaderData({
+                orderNo: get(shipment, 'FK_OrderNo'),
+              });
+              const housebill = get(shipmentHeaderData, '[0].Housebill');
+              console.info('🙂 -> file: index.js:115 -> housebill:', housebill);
+              itemObj.Housebill = housebill;
+              XMLpayLoad = await generateNonConsolXmlPayload(itemObj);
               console.info('XML Payload Generated :', XMLpayLoad);
 
-              dataResponse = await addMilestoneApiDataForConsol(XMLpayLoad);
+              dataResponse = await addMilestoneApiDataForNonConsol(XMLpayLoad);
               console.info('dataResponse', dataResponse);
               successRecords.push({
                 ConsolNo: itemObj.Housebill,
@@ -170,26 +170,87 @@ module.exports.handler = async (event) => {
 
         itemObj.ConsolNo = _.get(consolStatusValidationData, 'ConsolNo', '');
 
-        if (itemObj.StatusCode === 'DEL') {
-          const conIsCu = await consigneeIsCustomer(itemObj.ConsolNo, 'MULTISTOP');
-          if (conIsCu) {
-            console.info('send event DEL');
-            itemObj.StatusCode = 'DEL';
-          } else {
-            itemObj.StatusCode = 'AAD';
-            await updateStatusTable(itemObj.ConsolNo, 'DEL', 'SKIPPED');
+        const stopSeq = _.get(itemObj, 'StatusCode', '').split('#')[1];
+        console.info('🙂 -> file: index.js:174 -> module.exports.handler= -> stopSeq:', stopSeq);
+
+        if (itemObj.StatusCode.includes('#')) {
+          const consolidatedShipments = await getShipmentForStop({
+            consolNo: itemObj.ConsolNo,
+            stopSeq,
+          });
+          console.info(
+            '🙂 -> file: index.js:93 -> module.exports.handler= -> consolidatedShipments:',
+            consolidatedShipments
+          );
+          const failedRecords = [];
+          const successRecords = [];
+          for (const shipment of consolidatedShipments) {
+            try {
+              if (itemObj.StatusCode.includes(milestones.DEL) || itemObj.StatusCode.includes(milestones.DWP)) {
+                const conIsCu = await consigneeIsCustomer(
+                  get(shipment, 'FK_OrderNo'),
+                  types.MULTISTOP
+                );
+                if (conIsCu) {
+                  console.info('send event DEL or DWP');
+                } else {
+                  await updateStatusTable(itemObj.ConsolNo, itemObj.StatusCode, 'SKIPPED');
+                  itemObj.StatusCode = milestones.AAD;
+                  console.info('send event AAD');
+                }
+              }
+
+              itemObj.FK_OrderNo = get(shipment, 'FK_OrderNo');
+              const shipmentHeaderData = await getShipmentHeaderData({
+                orderNo: get(shipment, 'FK_OrderNo'),
+              });
+              const housebill = get(shipmentHeaderData, '[0].Housebill');
+              console.info('🙂 -> file: index.js:115 -> housebill:', housebill);
+              itemObj.Housebill = housebill;
+              XMLpayLoad = await generateNonConsolXmlPayload({
+                ...itemObj,
+                StatusCode: itemObj.StatusCode.split('#')[0],
+              });
+              console.info('XML Payload Generated :', XMLpayLoad);
+
+              dataResponse = await addMilestoneApiDataForNonConsol(XMLpayLoad);
+              console.info('dataResponse', dataResponse);
+              successRecords.push({
+                ConsolNo: itemObj.Housebill,
+                FK_OrderNo: get(shipment, 'FK_OrderNo'),
+                Response: dataResponse,
+                Payload: XMLpayLoad,
+              });
+            } catch (error) {
+              failedRecords.push({
+                ConsolNo: itemObj.Housebill,
+                FK_OrderNo: get(shipment, 'FK_OrderNo'),
+                ErrorMessage: error.message,
+              });
+            }
           }
-        } else if (itemObj.StatusCode === 'DWP') {
-          const conIsCu = await consigneeIsCustomer(itemObj.ConsolNo, 'MULTISTOP');
-          if (conIsCu) {
-            console.info('send event DWP');
-            itemObj.StatusCode = 'DWP';
-          } else {
-            itemObj.StatusCode = 'AAD';
-            await updateStatusTable(itemObj.ConsolNo, 'DWP', 'SKIPPED');
+          if (failedRecords.length) {
+            return await updateStatusTable(
+              itemObj.ConsolNo,
+              itemObj.StatusCode,
+              'FALIED',
+              '',
+              '',
+              failedRecords
+            );
           }
+          return await updateStatusTable(
+            itemObj.ConsolNo,
+            itemObj.StatusCode === milestones.AAD ? `${milestones.AAD}#${stopSeq}` : itemObj.StatusCode,
+            'SENT',
+            '',
+            '',
+            '',
+            successRecords
+          );
         }
 
+        console.info('🙂 -> file: index.js:245 -> itemObj:', itemObj);
         XMLpayLoad = await generateMultistopXmlPayload(itemObj);
         console.info('XML Payload Generated :', XMLpayLoad);
 
@@ -221,21 +282,6 @@ module.exports.handler = async (event) => {
   }
   return true;
 };
-
-async function publishSNSTopic({ Id, message }) {
-  try {
-    const params = {
-      TopicArn: ERROR_SNS_TOPIC_ARN,
-      Subject: `PB ADD MILESTONE ERROR NOTIFICATION - ${ENVIRONMENT} ~ Id: ${Id}`,
-      Message: `An error occurred in ${functionName}: ${message}`,
-    };
-
-    await sns.publish(params).promise();
-  } catch (error) {
-    console.error('Error publishing to SNS topic:', error);
-    throw error;
-  }
-}
 
 async function generateNonConsolXmlPayload(itemObj1) {
   try {
