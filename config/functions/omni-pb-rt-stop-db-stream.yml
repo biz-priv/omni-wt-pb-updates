@@ -15,17 +15,24 @@ function:
 
   events:
     - stream:
-        arn: arn:aws:dynamodb:us-east-1:332281781429:table/omni-pb-rt-stop-dev/stream/2024-05-09T20:02:58.575
+        arn: ${ssm:/omni-pb-rt/${self:provider.stage}/stop/ddb.streamArn}
         batchSize: 1
         maximumRetryAttempts: 1
 
   environment:
-    MOVEMENT_DB: 'omni-pb-rt-movement-dev'
+    MOVEMENT_DB: ${ssm:/omni-pb-rt/${self:provider.stage}/movement/db}
     ORDERS_TABLE_NAME: ${ssm:/omni-pb-rt/${self:provider.stage}/orders/db}
     MOVEMENT_ORDER_TABLE_NAME: ${ssm:/omni-pb-rt/${self:provider.stage}/movement-order/db}
     MOVEMENT_TABLE_NAME: ${ssm:/omni-pb-rt/${self:provider.stage}/movement/db}
-    ADD_MILESTONE_TABLE_NAME: ${ssm:/omni-pb-214/${self:provider.stage}/add-milestone/db}
+    ADD_MILESTONE_TABLE_NAME: ${ssm:/omni-pb-wt/${self:provider.stage}/milestones-update/db}
     ORDER_STATUS_TABLE_NAME: ${ssm:/omni-204-create-shipment/${self:provider.stage}/status/ddb.name}
     CONSOL_STATUS_TABLE_NAME: ${ssm:/omni-live-204/${self:provider.stage}/consol-status/ddb.tableName}
     GET_ORDERS_API_ENDPOINT: ${ssm:/omni-204-create-shipment/${self:provider.stage}/get-orders.url}
     AUTH: ${ssm:/omni-204-create-shipment/${self:provider.stage}/apis.auth}
+    CHECK_POD_API_ENDPOINT: ${ssm:/omni-ivlp/${self:provider.stage}/loadtracking/url}
+    MOVEMENT_ORDER_INDEX_NAME: ${ssm:/omni-pb-rt/${self:provider.stage}/movement-order/ddb.index}
+    MOVEMENT_ORIGIN_INDEX_NAME: ${ssm:/omni-pb-rt/${self:provider.stage}/movement-originstopIndex/ddb.index}
+    MOVEMENT_DESTINATION_INDEX_NAME: ${ssm:/omni-pb-rt/${self:provider.stage}/movement-deststop/ddb.index}
+    STOP_TABLE_NAME: ${ssm:/omni-pb-rt/${self:provider.stage}/stop/db}
+    STOP_INDEX_NAME: ${ssm:/omni-pb-rt/${self:provider.stage}/stop/ddb.index}
+

@@ -4,7 +4,7 @@ const { default: axios } = require('axios');
 const _ = require('lodash');
 const AWS = require('aws-sdk');
 
-const { GET_ORDERS_API_ENDPOINT, AUTH, ENVIRONMENT, ERROR_SNS_TOPIC_ARN } = process.env;
+const { GET_ORDERS_API_ENDPOINT, AUTH, ENVIRONMENT, ERROR_SNS_TOPIC_ARN, CHECK_POD_API_ENDPOINT } = process.env;
 
 const sns = new AWS.SNS();
 
@@ -49,7 +49,7 @@ async function checkForPod(orderId) {
     const authHeader = `Basic ${Buffer.from(`${username}:${password}`).toString('base64')}`;
 
     // Get POD
-    const url = `https://tms-lvlp.loadtracking.com:6790/ws/api/images/${rowType}/${orderId}`; // TODO: Move the url to ssm
+    const url = `${CHECK_POD_API_ENDPOINT}/${rowType}/${orderId}`; // TODO: Move the url to ssm
 
     console.info('URL trying to fetch the details:', url);
 

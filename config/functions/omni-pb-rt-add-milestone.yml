@@ -16,7 +16,7 @@ function:
   events:
     - stream:
         type: dynamodb
-        arn: 'arn:aws:dynamodb:us-east-1:332281781429:table/omni-pb-214-add-milestone-dev/stream/2024-05-09T22:16:02.791'
+        arn: ${ssm:/omni-pb-wt/${self:provider.stage}/milestones-update/ddb.streamArn}
         batchSize: 1
         enabled: true
         filterPatterns:
@@ -29,7 +29,7 @@ function:
     ORDERS_TABLE_NAME: ${ssm:/omni-pb-rt/${self:provider.stage}/orders/db}
     MOVEMENT_ORDER_TABLE_NAME: ${ssm:/omni-pb-rt/${self:provider.stage}/movement-order/db}
     MOVEMENT_TABLE_NAME: ${ssm:/omni-pb-rt/${self:provider.stage}/movement/db}
-    ADD_MILESTONE_TABLE_NAME: ${ssm:/omni-pb-214/${self:provider.stage}/add-milestone/db}
+    ADD_MILESTONE_TABLE_NAME: ${ssm:/omni-pb-wt/${self:provider.stage}/milestones-update/db}
     ORDER_STATUS_TABLE_NAME: ${ssm:/omni-204-create-shipment/${self:provider.stage}/status/ddb.name}
     CONSOL_STATUS_TABLE_NAME: ${ssm:/omni-live-204/${self:provider.stage}/consol-status/ddb.tableName}
     ADD_MILESTONE_URL: ${ssm:/omni-ivia/${self:provider.stage}/addMilestone/url}
@@ -41,3 +41,7 @@ function:
     CONSOL_STOP_HEADERS: ${ssm:/omni-wt-rt-updates/${self:provider.stage}/consol-stop-headers/ddb.tableName}
     CONSOL_STOP_ITEMS: ${ssm:/omni-wt-rt-updates/${self:provider.stage}/consol-stop-items/ddb.tableName}
     SHIPMENT_HEADER_TABLE: ${ssm:/omni-wt-rt-updates/${self:provider.stage}/shipment-header/ddb.tableName}
+    CHECK_POD_API_ENDPOINT: ${ssm:/omni-ivlp/${self:provider.stage}/loadtracking/url}
+    MOVEMENT_ORDER_INDEX_NAME: ${ssm:/omni-pb-rt/${self:provider.stage}/movement-order/ddb.index}
+    MOVEMENT_ORIGIN_INDEX_NAME: ${ssm:/omni-pb-rt/${self:provider.stage}/movement-originstopIndex/ddb.index}
+    MOVEMENT_DESTINATION_INDEX_NAME: ${ssm:/omni-pb-rt/${self:provider.stage}/movement-deststop/ddb.index}

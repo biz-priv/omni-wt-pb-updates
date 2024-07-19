@@ -18,6 +18,11 @@ const {
   CONSOL_STOP_HEADERS,
   CONSOL_STOP_ITEMS,
   SHIPMENT_HEADER_TABLE,
+  MOVEMENT_ORDER_INDEX_NAME,
+  MOVEMENT_ORIGIN_INDEX_NAME,
+  MOVEMENT_DESTINATION_INDEX_NAME,
+  STOP_TABLE_NAME,
+  STOP_INDEX_NAME,
 } = process.env;
 
 async function query(params) {
@@ -44,7 +49,7 @@ async function query(params) {
 async function getMovementOrder(id) {
   const movementParams = {
     TableName: MOVEMENT_ORDER_TABLE_NAME,
-    IndexName: 'movement_id-index', // TODO: Move the index name to ssm
+    IndexName: MOVEMENT_ORDER_INDEX_NAME, // TODO: Move the index name to ssm
     KeyConditionExpression: 'movement_id = :movement_id',
     ExpressionAttributeValues: {
       ':movement_id': id,
@@ -110,7 +115,7 @@ async function updateMilestone(finalPayload) {
 async function getMovement(id, stopType) {
   const movementParams = {
     TableName: process.env.MOVEMENT_DB,
-    IndexName: stopType === 'PU' ? 'OriginStopIndex' : 'DestStopIndex', // TODO: Move the index name to ssm
+    IndexName: stopType === 'PU' ? MOVEMENT_ORIGIN_INDEX_NAME : MOVEMENT_DESTINATION_INDEX_NAME , // TODO: Move the index name to ssm
     KeyConditionExpression: stopType === 'PU' ? 'origin_stop_id = :id' : 'dest_stop_id = :id',
     FilterExpression: '#status IN (:statusP, :statusC)',
     ExpressionAttributeNames: {
@@ -190,8 +195,8 @@ async function getConsolStatus(id) {
 
 async function getStop(orderId) {
   const consolStatusParams = {
-    TableName: 'omni-pb-rt-stop-dev', // TODO: Move the table name to ssm
-    IndexName: 'order_id-index', // TODO: Move the index name to ssm
+    TableName: STOP_TABLE_NAME, // TODO: Move the table name to ssm
+    IndexName: STOP_INDEX_NAME, // TODO: Move the index name to ssm
     KeyConditionExpression: 'order_id = :order_id',
     ExpressionAttributeValues: {
       ':order_id': orderId,
