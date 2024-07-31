@@ -35,4 +35,3 @@ function:
     MOVEMENT_DESTINATION_INDEX_NAME: ${ssm:/omni-pb-rt/${self:provider.stage}/movement-deststop/ddb.index}
     STOP_TABLE_NAME: ${ssm:/omni-pb-rt/${self:provider.stage}/stop/db}
     STOP_INDEX_NAME: ${ssm:/omni-pb-rt/${self:provider.stage}/stop/ddb.index}
-

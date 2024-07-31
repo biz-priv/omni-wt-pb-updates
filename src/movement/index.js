@@ -12,7 +12,7 @@ const moment = require('moment-timezone');
 const { checkForPod, publishSNSTopic } = require('../shared/apis');
 const { types, milestones } = require('../shared/helper');
 
-const { ADD_MILESTONE_TABLE_NAME, ENVIRONMENT } = process.env;
+const { ADD_MILESTONE_TABLE_NAME } = process.env;
 
 module.exports.handler = async (event) => {
   let Id;
@@ -100,11 +100,7 @@ module.exports.handler = async (event) => {
         await updateMilestone(finalPayload);
       }
 
-      if (
-        oldStatus !== 'D' &&
-        newStatus === 'D' &&
-        ![types.MULTISTOP, types.CONSOL].includes(type)
-      ) {
+      if (oldStatus !== 'D' && newStatus === 'D' && ![types.MULTISTOP].includes(type)) {
         const movementId = Id;
 
         if (!movementId) {
@@ -155,11 +151,13 @@ module.exports.handler = async (event) => {
       EventDateTime: moment.tz('America/Chicago').format(),
       Housebill: Housebill.toString(),
       ErrorMessage: error.message,
-      StatusCode: 'FAILED',
+      StatusCode,
+      Status: 'FAILED',
     });
 
     await publishSNSTopic({
-      subject: `PB ADD MILESTONE ERROR NOTIFICATION - ${ENVIRONMENT} ~ id: ${Id}`,
+      id: Housebill,
+      status: StatusCode,
       message: `Error processing Housebill: ${Housebill}, ${error.message}. \n Please check the error meesage in DynamoDb Table ${ADD_MILESTONE_TABLE_NAME} for complete error`,
     });
     throw error;

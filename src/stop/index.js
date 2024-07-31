@@ -27,6 +27,7 @@ exports.handler = async (event) => {
     let stopId;
     let StatusCode;
     let Housebill;
+    let orderId;
     try {
       const newUnmarshalledRecord = AWS.DynamoDB.Converter.unmarshall(record.dynamodb.NewImage);
       const oldUnmarshalledRecord = AWS.DynamoDB.Converter.unmarshall(record.dynamodb.OldImage);
@@ -55,7 +56,7 @@ exports.handler = async (event) => {
 
       console.info('New Stop Type: ', newStopType);
 
-      const orderId = _.get(newUnmarshalledRecord, 'order_id', '');
+      orderId = _.get(newUnmarshalledRecord, 'order_id', '');
       console.info('Order Id coming from the Event:', orderId);
 
       Housebill = await getOrder(orderId);
@@ -143,7 +144,6 @@ exports.handler = async (event) => {
         newActualArrival !== '' &&
         newStopType === 'SO'
       ) {
-        // if (maxSequenceId - Number(seqId) === 0) {
         console.info('The Last Delivery of the Consolidation');
         StatusCode = milestones.AAD;
         if ([types.MULTISTOP].includes(type)) StatusCode = `${milestones.AAD}#${seqId}`;
@@ -157,8 +157,6 @@ exports.handler = async (event) => {
           Housebill
         );
         await updateMilestone(finalPayload);
-        // }
-        // console.info('This is not the last delivery of the consolidation');
       }
 
       // status Code = DWP or DEL
@@ -237,16 +235,18 @@ exports.handler = async (event) => {
       console.error('Error in handler:', error);
       // id, statuscode, housebill, eventdatetime, sattus,
       await updateMilestone({
-        Id: stopId,
+        OrderId: orderId,
         EventDateTime: moment.tz('America/Chicago').format(),
         Housebill: Housebill?.toString(),
         ErrorMessage: error.message,
-        StatusCode: 'FAILED',
+        StatusCode: StatusCode ?? 'FAILED',
+        Status: 'FAILED',
       });
       // add sns here
       await publishSNSTopic({
+        id: orderId,
+        status: StatusCode,
         message: `Error processing StopId: ${stopId}, ${error.message}. \n Please check the error meesage in DynamoDb Table ${ADD_MILESTONE_TABLE_NAME} for complete error`,
-        stopId,
       });
       throw error;
     }

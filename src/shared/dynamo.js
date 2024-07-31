@@ -23,6 +23,7 @@ const {
   MOVEMENT_DESTINATION_INDEX_NAME,
   STOP_TABLE_NAME,
   STOP_INDEX_NAME,
+  CONSOL_STOP_HEADERS_CONSOL_INDEX,
 } = process.env;
 
 async function query(params) {
@@ -56,6 +57,7 @@ async function getMovementOrder(id) {
     },
     ProjectionExpression: 'order_id',
   };
+  console.info('🙂 -> file: dynamo.js:59 -> getMovementOrder -> movementParams:', movementParams);
 
   try {
     const items = await query(movementParams);
@@ -115,7 +117,7 @@ async function updateMilestone(finalPayload) {
 async function getMovement(id, stopType) {
   const movementParams = {
     TableName: process.env.MOVEMENT_DB,
-    IndexName: stopType === 'PU' ? MOVEMENT_ORIGIN_INDEX_NAME : MOVEMENT_DESTINATION_INDEX_NAME , // TODO: Move the index name to ssm
+    IndexName: stopType === 'PU' ? MOVEMENT_ORIGIN_INDEX_NAME : MOVEMENT_DESTINATION_INDEX_NAME, // TODO: Move the index name to ssm
     KeyConditionExpression: stopType === 'PU' ? 'origin_stop_id = :id' : 'dest_stop_id = :id',
     FilterExpression: '#status IN (:statusP, :statusC)',
     ExpressionAttributeNames: {
@@ -146,13 +148,20 @@ async function getMovement(id, stopType) {
 async function getOrderStatus(id) {
   const orderStatusParams = {
     TableName: ORDER_STATUS_TABLE_NAME,
-    IndexName: 'ShipmentId-index', // TODO: Move the index name to ssm
+    IndexName: 'ShipmentId-index',
     KeyConditionExpression: 'ShipmentId = :ShipmentId',
+    ExpressionAttributeNames: {
+      '#type': 'Type',
+    },
     ExpressionAttributeValues: {
       ':ShipmentId': id,
     },
-    ProjectionExpression: 'Type, FK_OrderNo',
+    ProjectionExpression: '#type, FK_OrderNo',
   };
+  console.info(
+    '🙂 -> file: dynamo.js:160 -> getOrderStatus -> orderStatusParams:',
+    orderStatusParams
+  );
 
   try {
     const items = await query(orderStatusParams);
@@ -163,7 +172,7 @@ async function getOrderStatus(id) {
     console.info('No Record found in Order Status Dynamo Table for MovementId:', id);
     return false;
   } catch (error) {
-    console.error('Error in getMovementOrder function:', error);
+    console.error('Error in getOrderStatus function:', error);
     throw error;
   }
 }
@@ -173,11 +182,19 @@ async function getConsolStatus(id) {
     TableName: CONSOL_STATUS_TABLE_NAME,
     IndexName: 'ShipmentId-index', // TODO: Move the index name to ssm
     KeyConditionExpression: 'ShipmentId = :ShipmentId',
+    ExpressionAttributeNames: {
+      '#ConsolNo': 'ConsolNo',
+      '#Type': 'Type',
+    },
     ExpressionAttributeValues: {
       ':ShipmentId': id,
     },
-    ProjectionExpression: 'ConsolNo, Type',
+    ProjectionExpression: '#ConsolNo, #Type',
   };
+  console.info(
+    '🙂 -> file: dynamo.js:185 -> getConsolStatus -> consolStatusParams:',
+    consolStatusParams
+  );
 
   try {
     const items = await query(consolStatusParams);
@@ -311,7 +328,7 @@ async function getConsolStopHeader({ consolNo, stopSeq }) {
   try {
     const cshparams = {
       TableName: CONSOL_STOP_HEADERS,
-      IndexName: 'omni-ivia-FK_ConsolNo-index-dev', // TODO: Move the index name to ssm
+      IndexName: CONSOL_STOP_HEADERS_CONSOL_INDEX,
       KeyConditionExpression: 'FK_ConsolNo = :ConsolNo',
       FilterExpression: 'ConsolStopNumber = :stopSeq',
       ExpressionAttributeValues: {
@@ -371,6 +388,14 @@ async function getShipmentHeaderData({ orderNo }) {
   }
 }
 
+async function getShipmentForStop({ consolNo, stopSeq }) {
+  console.info('🙂 -> file: helper.js:4 -> getConsolStopHeader:', getConsolStopHeader);
+  const cshRes = await getConsolStopHeader({ consolNo, stopSeq });
+  const stopId = _.get(cshRes, '[0].PK_ConsolStopId');
+  if (!stopId) return [];
+  return await getShipmentForSeq({ stopId });
+}
+
 module.exports = {
   getMovementOrder,
   getOrder,
@@ -386,4 +411,5 @@ module.exports = {
   getShipmentHeaderData,
   getConsolStopHeader,
   getShipmentForSeq,
+  getShipmentForStop,
 };

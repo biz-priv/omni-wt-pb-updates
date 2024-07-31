@@ -4,7 +4,15 @@ const { default: axios } = require('axios');
 const _ = require('lodash');
 const AWS = require('aws-sdk');
 
-const { GET_ORDERS_API_ENDPOINT, AUTH, ENVIRONMENT, ERROR_SNS_TOPIC_ARN, CHECK_POD_API_ENDPOINT } = process.env;
+const {
+  GET_ORDERS_API_ENDPOINT,
+  AUTH,
+  ENVIRONMENT,
+  ERROR_SNS_TOPIC_ARN,
+  CHECK_POD_API_ENDPOINT,
+  PB_USERNAME,
+  PB_PASSWORD,
+} = process.env;
 
 const sns = new AWS.SNS();
 
@@ -34,8 +42,8 @@ async function getOrders({ id }) {
 
 async function checkForPod(orderId) {
   try {
-    const username = 'apiuser';
-    const password = 'lvlpapiuser';
+    const username = PB_USERNAME;
+    const password = PB_PASSWORD;
     const mcleodHeaders = {
       'Accept': 'application/json',
       'Content-Type': 'application/json',
@@ -63,7 +71,7 @@ async function checkForPod(orderId) {
     if (response.status !== 200) {
       const errorMessage = `Failed to get POD for order ${orderId}. Status code: ${response.status}`;
       await publishSNSTopic({
-        subject: `PB ADD MILESTONE ERROR NOTIFICATION - ${ENVIRONMENT} ~ id: ${orderId}`,
+        id: orderId,
         message: errorMessage,
       });
       return 'N';
@@ -93,21 +101,22 @@ async function checkForPod(orderId) {
   } catch (error) {
     const errorMessage = `Error processing POD data: ${error.message}`;
     await publishSNSTopic({
-      subject: `PB ADD MILESTONE ERROR NOTIFICATION - ${ENVIRONMENT} ~ id: ${orderId}`,
+      id: orderId,
       message: errorMessage,
     });
   }
   return true;
 }
 
-async function publishSNSTopic({ subject, message }) {
+async function publishSNSTopic({ id, status, message }) {
+  const subject = `PB ADD MILESTONE ERROR NOTIFICATION - ${ENVIRONMENT} ~ id: ${id}, status: ${status}`;
   try {
     const params = {
       TopicArn: ERROR_SNS_TOPIC_ARN,
       Subject: subject,
       Message: message,
     };
-
+    console.info('🙂 -> file: apis.js:118 -> publishSNSTopic -> params:', params);
     await sns.publish(params).promise();
   } catch (error) {
     console.error('Error publishing to SNS topic:', error);
