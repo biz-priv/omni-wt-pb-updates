@@ -1,4 +1,12 @@
 /* eslint-disable consistent-return */
+/*
+ * File: src/stop/index.js
+ * Project: PB-WT 214
+ * Author: Bizcloud Experts
+ * Date: 2024-08-14
+ * Confidential and Proprietary
+ */
+
 'use strict';
 const AWS = require('aws-sdk');
 const _ = require('lodash');
@@ -292,8 +300,6 @@ exports.handler = async (event, context) => {
 async function getPayloadForStopDb(StatusCode, stopId, stopType, type, orderId, housebill) {
   try {
     let modifiedStopId = stopId;
-    // let lastStop;
-    // if ([types.MULTISTOP].includes(type)) {
     const orderDetails = await getOrders({ id: orderId });
     console.info('🙂 -> file: index.js:253 -> getPayloadForStopDb -> stops:', orderDetails);
     const stops = _.get(orderDetails, 'stops', []);
@@ -303,7 +309,6 @@ async function getPayloadForStopDb(StatusCode, stopId, stopType, type, orderId, 
     const lastStop = _.get(stops, `[${_.size(stops) - 1}].id`);
     console.info('🙂 -> file: index.js:261 -> getPayloadForStopDb -> lastStop:', lastStop);
     modifiedStopId = stopType === 'PU' ? firstStop : lastStop;
-    // }
 
     if (modifiedStopId !== lastStop) await getMovement(modifiedStopId, stopType);
 
@@ -323,6 +328,6 @@ async function getPayloadForStopDb(StatusCode, stopId, stopType, type, orderId, 
     return finalPayload;
   } catch (error) {
     console.error('Error in getPayloadForStopDb function: ', error);
-    return false;
+    throw error;
   }
 }

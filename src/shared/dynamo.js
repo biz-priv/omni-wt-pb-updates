@@ -1,3 +1,11 @@
+/*
+ * File: src/shared/dynamo.js
+ * Project: PB-WT 214
+ * Author: Bizcloud Experts
+ * Date: 2024-08-14
+ * Confidential and Proprietary
+ */
+
 'use strict';
 
 const AWS = require('aws-sdk');
@@ -293,8 +301,8 @@ async function queryWithPartitionKey(tableName, key) {
       ExpressionAttributeValues: expressionAtts,
     };
     return await dynamoDB.query(params).promise();
-  } catch (e) {
-    console.error('Query Item With Partition key Error: ', e, '\nGet params: ', params);
+  } catch (error) {
+    console.error('Query Item With Partition key Error: ', error, '\nGet params: ', params);
     throw new Error('QueryItemError');
   }
 }
@@ -366,9 +374,9 @@ async function getAparDataByConsole({ orderNo }) {
     const result = await query(shipmentAparParams);
     console.info('🙂 -> file: dynamo.js:313 -> getAparDataByConsole -> result:', result);
     return result;
-  } catch (err) {
-    console.error('🙂 -> file: helper.js:546 -> err:', err);
-    throw err;
+  } catch (error) {
+    console.error('🙂 -> file: helper.js:546 -> error:', error);
+    throw error;
   }
 }
 
@@ -389,7 +397,7 @@ async function getConsolStopHeader({ consolNo, stopSeq }) {
     const result = await query(cshparams);
     return result;
   } catch (error) {
-    console.info('🙂 -> file: dynamo.js:338 -> getConsolStopHeader -> error:', error);
+    console.error('🙂 -> file: dynamo.js:338 -> getConsolStopHeader -> error:', error);
     throw error;
   }
 }
@@ -409,7 +417,7 @@ async function getTotalStop({ consolNo }) {
     const result = await query(cshparams);
     return result;
   } catch (error) {
-    console.info('🙂 -> file: dynamo.js:338 -> getConsolStopHeader -> error:', error);
+    console.error('🙂 -> file: dynamo.js:338 -> getConsolStopHeader -> error:', error);
     throw error;
   }
 }
@@ -429,7 +437,7 @@ async function getShipmentForSeq({ stopId }) {
     const result = await query(cstparams);
     return result;
   } catch (error) {
-    console.info('🙂 -> file: dynamo.js:358 -> getShipmentForSeq -> error:', error);
+    console.error('🙂 -> file: dynamo.js:358 -> getShipmentForSeq -> error:', error);
     throw error;
   }
 }
@@ -451,7 +459,7 @@ async function getShipmentHeaderData({ orderNo }) {
     const result = await query(shipmentHeaderParams);
     return result;
   } catch (error) {
-    console.info('🙂 -> file: dynamo.js:358 -> getShipmentForSeq -> error:', error);
+    console.error('🙂 -> file: dynamo.js:358 -> getShipmentForSeq -> error:', error);
     throw error;
   }
 }
@@ -500,7 +508,7 @@ async function updateDynamoRow({ housebill, statusCode, data }) {
     console.info('🙂 -> file: dynamodb.js:159 -> updateDocStatusTableData -> params:', params);
     return await dynamoDB.update(params).promise();
   } catch (error) {
-    console.info('🙂 -> file: index.js:53 -> updateRow -> error:', error);
+    console.error('🙂 -> file: index.js:53 -> updateRow -> error:', error);
     throw error;
   }
 }
@@ -538,9 +546,9 @@ async function updateStatusTable(
     };
     console.info('🙂 -> file: index.js:125 -> updateParam:', updateParam);
     return await dynamoDB.update(updateParam).promise();
-  } catch (err) {
-    console.error('🙂 -> file: index.js:224 -> err:', err);
-    throw err;
+  } catch (error) {
+    console.error('🙂 -> file: index.js:224 -> error:', error);
+    throw error;
   }
 }
 

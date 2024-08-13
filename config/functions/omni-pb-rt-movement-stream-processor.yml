@@ -15,12 +15,6 @@ function:
       - 'src/movement/index.js'
       - 'src/shared/*'
 
-  # events:
-  #   - stream:
-  #       arn: ${ssm:/omni-pb-rt/${self:provider.stage}/movement/ddb.streamArn}
-  #       batchSize: 1
-  #       maximumRetryAttempts: 1
-
   events:
     - sqs:
         arn: ${ssm:/omni-pb-wt/${self:provider.stage}/movement-table-stream-queue-arn}

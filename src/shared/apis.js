@@ -1,3 +1,11 @@
+/*
+ * File: src/shared/apis.js
+ * Project: PB-WT 214
+ * Author: Bizcloud Experts
+ * Date: 2024-08-14
+ * Confidential and Proprietary
+ */
+
 'use strict';
 
 const { default: axios } = require('axios');
@@ -14,7 +22,7 @@ const {
   PB_PASSWORD,
   ADD_MILESTONE_URL,
   ADD_DOCUMENT_URL,
-  ADD_DOCUMENT_API_KEY
+  ADD_DOCUMENT_API_KEY,
 } = process.env;
 
 const sns = new AWS.SNS();
@@ -95,7 +103,7 @@ async function checkForPod(orderId) {
     console.info(`Does a POD for order ${orderId} exist? ${exists}`);
     return exists;
   } catch (error) {
-    console.info('🙂 -> file: apis.js:103 -> checkForPod -> error:', error);
+    console.error('🙂 -> file: apis.js:103 -> checkForPod -> error:', error);
     return 'N';
   }
 }
@@ -168,7 +176,7 @@ async function getPODId(orderId) {
 
     return filteredResponse[0];
   } catch (error) {
-    console.info('🙂 -> file: apis.js:186 -> getPODId -> error:', error);
+    console.error('🙂 -> file: apis.js:186 -> getPODId -> error:', error);
     return false;
   }
 }
@@ -224,12 +232,12 @@ async function uploadPODDoc({ housebill, base64 }) {
         },
       },
     };
-    console.info(`Uploading POD for ${housebill}`);
+    console.info(`Uploading POD for housebill: ${housebill}`);
     const podUploadRes = await axios.request(config);
     console.info('🙂 -> file: apis.js:241 -> uploadPODDoc -> podUploadRes:', podUploadRes.data);
     return podUploadRes.data?.msg === 'Success';
   } catch (error) {
-    console.info('��� -> file: apis.js:242 -> uploadPODDoc -> error:', error);
+    console.error('��� -> file: apis.js:242 -> uploadPODDoc -> error:', error);
     return error;
   }
 }
@@ -255,7 +263,7 @@ async function markAsDelivered(housebill, EventDateTime) {
 
     throw new Error(`API Request Failed: ${JSON.stringify(res)}`);
   } catch (error) {
-    console.info('��� -> file: apis.js:283 -> markAsDelivered -> error:', error);
+    console.error('��� -> file: apis.js:283 -> markAsDelivered -> error:', error);
     throw error;
   }
 }

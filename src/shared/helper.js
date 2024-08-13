@@ -1,3 +1,11 @@
+/*
+ * File: src/shared/helper.js
+ * Project: PB-WT 214
+ * Author: Bizcloud Experts
+ * Date: 2024-08-14
+ * Confidential and Proprietary
+ */
+
 'use strict';
 
 const _ = require('lodash');
@@ -89,7 +97,7 @@ async function generateNonConsolXmlPayload(itemObj1) {
     return xml;
   } catch (error) {
     console.error('Error generating XML:', error);
-    return null;
+    throw error;
   }
 }
 
@@ -123,7 +131,7 @@ async function generateMultiStopXmlPayload({ consolNo, statusCode, eventDateTime
     return xml;
   } catch (error) {
     console.error('Error generating XML:', error);
-    return null;
+    throw error;
   }
 }
 
@@ -205,8 +213,8 @@ async function deleteMassageFromQueue({ receiptHandle, queueUrl }) {
 
     await sqs.deleteMessage({ ...deleteParams }).promise();
     console.info('Message deleted successfully');
-  } catch (e) {
-    console.error('Error processing SQS event:', e);
+  } catch (error) {
+    console.error('Error processing SQS event:', error);
   }
 }
 

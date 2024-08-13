@@ -1,3 +1,11 @@
+/*
+ * File: src/add-milestone/index.js
+ * Project: PB-WT 214
+ * Author: Bizcloud Experts
+ * Date: 2024-08-14
+ * Confidential and Proprietary
+ */
+
 'use strict';
 
 const AWS = require('aws-sdk');
@@ -156,7 +164,7 @@ async function processForNonConsol({ originalStatus, orderId, housebill, eventTi
     };
     return await updateDynamoRow({ housebill, statusCode: originalStatus, data });
   } catch (error) {
-    console.info('🙂 -> file: index.js:299 -> processForNonConsol -> error:', error);
+    console.error('🙂 -> file: index.js:299 -> processForNonConsol -> error:', error);
 
     //* Update the record to FAILED if anything fails.
     const data = {
@@ -233,7 +241,7 @@ async function processForConsol({ originalStatus, orderNo, orderId, eventTime })
         Payload: XMLpayLoad,
       });
     } catch (error) {
-      console.info('🙂 -> file: index.js:369 -> processForConsol -> error:', error);
+      console.error('🙂 -> file: index.js:369 -> processForConsol -> error:', error);
       //* For the failed records add the shipment to the failed shipment list
       failedRecords.push({
         ConsolNo: orderNo,

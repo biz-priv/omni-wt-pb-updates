@@ -15,12 +15,6 @@ function:
       - 'src/stop/index.js'
       - 'src/shared/*'
 
-  # events:
-  #   - stream:
-  #       arn: ${ssm:/omni-pb-rt/${self:provider.stage}/stop/ddb.streamArn}
-  #       batchSize: 1
-  #       maximumRetryAttempts: 1
-
   events:
     - sqs:
         arn: ${ssm:/omni-pb-wt/${self:provider.stage}/stop-table-stream-queue-arn}

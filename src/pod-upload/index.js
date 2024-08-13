@@ -1,3 +1,11 @@
+/*
+ * File: src/pod-upload/index.js
+ * Project: PB-WT 214
+ * Author: Bizcloud Experts
+ * Date: 2024-08-14
+ * Confidential and Proprietary
+ */
+
 'use strict';
 
 const _ = require('lodash');
@@ -202,7 +210,7 @@ async function uploadPODForConsol({ base64, housebill, type, eventDateTime }) {
         }
       }
     } catch (error) {
-      console.info('🙂 -> file: index.js:110 -> uploadPODForConsol -> error:', error);
+      console.error('🙂 -> file: index.js:110 -> uploadPODForConsol -> error:', error);
       failedRecords.push({
         ConsolNo: housebill,
         FK_OrderNo: _.get(shipment, 'FK_OrderNo'),
