@@ -13,6 +13,8 @@ const {
   PB_USERNAME,
   PB_PASSWORD,
   ADD_MILESTONE_URL,
+  ADD_DOCUMENT_URL,
+  ADD_DOCUMENT_API_KEY
 } = process.env;
 
 const sns = new AWS.SNS();
@@ -210,10 +212,10 @@ async function uploadPODDoc({ housebill, base64 }) {
     const config = {
       method: 'post',
       maxBodyLength: Infinity,
-      url: 'https://dev-api.omnilogistics.com/v1/uploadpoddocument',
+      url: ADD_DOCUMENT_URL,
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': 'XMsO4SEAQ34GoReTyD5fU7ujvcUjaoDj887hn0mM',
+        'x-api-key': ADD_DOCUMENT_API_KEY,
       },
       data: {
         UploadPODDocument: {

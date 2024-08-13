@@ -15,9 +15,9 @@ function:
       - 'src/pod-upload/index.js'
       - 'src/shared/*'
 
-  # events:
-  #   - schedule:
-  #       rate: rate(5 minutes)
+  events:
+    - schedule:
+        rate: rate(5 minutes)
 
   environment:
     ERROR_SNS_TOPIC_ARN: ${ssm:/omni-power-broker/${self:provider.stage}/error-notification/sns/arn}
@@ -45,3 +45,5 @@ function:
     PB_USERNAME: ${ssm:/omni-pb-wt/${self:provider.stage}/pb-username}
     PB_PASSWORD: ${ssm:/omni-pb-wt/${self:provider.stage}/pb-password}
     STATUS_INDEX: ${ssm:/omni-pb-wt/${self:provider.stage}/milestones-update/db-status-index}
+    ADD_DOCUMENT_URL: ${ssm:/omni-pb-wt/${self:provider.stage}/upload-doc-url}
+    ADD_DOCUMENT_API_KEY: ${ssm:/omni-pb-wt/${self:provider.stage}/upload-doc-api-key}
