@@ -1,10 +1,11 @@
 'use strict';
 
 const AWS = require('aws-sdk');
+const moment = require('moment-timezone');
 
 const dynamoDB = new AWS.DynamoDB.DocumentClient();
 const _ = require('lodash');
-const { types } = require('./helper');
+const { types, status, milestones, getDynamoUpdateParam } = require('./helper');
 
 const {
   ORDERS_TABLE_NAME,
@@ -24,6 +25,7 @@ const {
   STOP_TABLE_NAME,
   STOP_INDEX_NAME,
   CONSOL_STOP_HEADERS_CONSOL_INDEX,
+  STATUS_INDEX,
 } = process.env;
 
 async function query(params) {
@@ -50,7 +52,7 @@ async function query(params) {
 async function getMovementOrder(id) {
   const movementParams = {
     TableName: MOVEMENT_ORDER_TABLE_NAME,
-    IndexName: MOVEMENT_ORDER_INDEX_NAME, // TODO: Move the index name to ssm
+    IndexName: MOVEMENT_ORDER_INDEX_NAME,
     KeyConditionExpression: 'movement_id = :movement_id',
     ExpressionAttributeValues: {
       ':movement_id': id,
@@ -67,7 +69,7 @@ async function getMovementOrder(id) {
       console.info('Order ID:', orderId);
       return orderId;
     }
-    throw new Error('No Record found in Movement order Dynamo Table for Id:', id);
+    return false;
   } catch (error) {
     console.error('Error in getMovementOrder function:', error);
     throw error;
@@ -93,7 +95,7 @@ async function getOrder(orderId) {
       console.info('Housebill Number:', housebillNum);
       return housebillNum;
     }
-    throw new Error('No Record found in Orders Dynamo Table for orderId:', orderId);
+    throw new Error(`No Record found in Orders Dynamo Table for orderId: ${orderId}}`);
   } catch (error) {
     console.error('Error in getOrder function:', error);
     throw error;
@@ -105,6 +107,10 @@ async function updateMilestone(finalPayload) {
     TableName: ADD_MILESTONE_TABLE_NAME,
     Item: finalPayload,
   };
+  console.info(
+    '🙂 -> file: dynamo.js:110 -> updateMilestone -> addMilestoneParams:',
+    addMilestoneParams
+  );
   try {
     await dynamoDB.put(addMilestoneParams).promise();
     console.info('Successfully inserted payload into omni-pb-214-add-milestone table');
@@ -115,10 +121,13 @@ async function updateMilestone(finalPayload) {
 }
 
 async function getMovement(id, stopType) {
+  const keyCondition = stopType === 'PU' ? 'origin_stop_id = :id' : 'dest_stop_id = :id';
+  const indexName =
+    stopType === 'PU' ? MOVEMENT_ORIGIN_INDEX_NAME : MOVEMENT_DESTINATION_INDEX_NAME;
   const movementParams = {
     TableName: process.env.MOVEMENT_DB,
-    IndexName: stopType === 'PU' ? MOVEMENT_ORIGIN_INDEX_NAME : MOVEMENT_DESTINATION_INDEX_NAME, // TODO: Move the index name to ssm
-    KeyConditionExpression: stopType === 'PU' ? 'origin_stop_id = :id' : 'dest_stop_id = :id',
+    IndexName: indexName,
+    KeyConditionExpression: keyCondition,
     FilterExpression: '#status IN (:statusP, :statusC)',
     ExpressionAttributeNames: {
       '#status': 'status',
@@ -138,7 +147,46 @@ async function getMovement(id, stopType) {
     if (result.length > 0) {
       return _.get(result, '[0].id', '');
     }
-    throw new Error('No Record found in Movement Table for id: ', id);
+    const movementParamsSecond = {
+      TableName: process.env.MOVEMENT_DB,
+      IndexName: indexName,
+      KeyConditionExpression: keyCondition,
+      FilterExpression: '#status IN (:statusD)',
+      ExpressionAttributeNames: {
+        '#status': 'status',
+      },
+      ExpressionAttributeValues: {
+        ':id': id,
+        ':statusD': 'D',
+      },
+      ProjectionExpression: 'id, inserted_timestamp',
+    };
+    console.info(
+      '🙂 -> file: dynamo.js:164 -> getMovement -> movementParamsSecond:',
+      movementParamsSecond
+    );
+    const resultSecond = await query(movementParamsSecond);
+    console.info('🙂 -> file: dynamo.js:166 -> getMovement -> resultSecond:', resultSecond);
+    const insertedTimestamp = _.get(
+      resultSecond,
+      '[0]inserted_timestamp',
+      moment().tz('America/Chicago')
+    );
+    console.info(
+      '🙂 -> file: dynamo.js:168 -> getMovement -> insertedTimestamp:',
+      insertedTimestamp
+    );
+    const currentTimestamp = moment().tz('America/Chicago');
+    const timeDifference = currentTimestamp.diff(insertedTimestamp, 'minutes');
+    console.info('🙂 -> file: dynamo.js:171 -> getMovement -> timeDifference:', timeDifference);
+    if (timeDifference < 5) {
+      return _.get(resultSecond, '[0].id', '');
+    }
+
+    throw new Error(
+      `No Record found in Movement Table for id: ${id}, index name: ${indexName} where status id 'P' or 'C'.\n
+      The milestone cannot be updated.`
+    );
   } catch (error) {
     console.error('Error in getMovement function:', error);
     throw error;
@@ -180,7 +228,7 @@ async function getOrderStatus(id) {
 async function getConsolStatus(id) {
   const consolStatusParams = {
     TableName: CONSOL_STATUS_TABLE_NAME,
-    IndexName: 'ShipmentId-index', // TODO: Move the index name to ssm
+    IndexName: 'ShipmentId-index',
     KeyConditionExpression: 'ShipmentId = :ShipmentId',
     ExpressionAttributeNames: {
       '#ConsolNo': 'ConsolNo',
@@ -212,8 +260,8 @@ async function getConsolStatus(id) {
 
 async function getStop(orderId) {
   const consolStatusParams = {
-    TableName: STOP_TABLE_NAME, // TODO: Move the table name to ssm
-    IndexName: STOP_INDEX_NAME, // TODO: Move the index name to ssm
+    TableName: STOP_TABLE_NAME,
+    IndexName: STOP_INDEX_NAME,
     KeyConditionExpression: 'order_id = :order_id',
     ExpressionAttributeValues: {
       ':order_id': orderId,
@@ -346,6 +394,26 @@ async function getConsolStopHeader({ consolNo, stopSeq }) {
   }
 }
 
+async function getTotalStop({ consolNo }) {
+  try {
+    const cshparams = {
+      TableName: CONSOL_STOP_HEADERS,
+      IndexName: CONSOL_STOP_HEADERS_CONSOL_INDEX,
+      KeyConditionExpression: 'FK_ConsolNo = :ConsolNo',
+      ExpressionAttributeValues: {
+        ':ConsolNo': consolNo.toString(),
+      },
+      ProjectionExpression: 'PK_ConsolStopId',
+    };
+    console.info('🙂 -> file: dynamo.js:331 -> getConsolStopHeader -> cshparams:', cshparams);
+    const result = await query(cshparams);
+    return result;
+  } catch (error) {
+    console.info('🙂 -> file: dynamo.js:338 -> getConsolStopHeader -> error:', error);
+    throw error;
+  }
+}
+
 async function getShipmentForSeq({ stopId }) {
   try {
     const cstparams = {
@@ -396,6 +464,86 @@ async function getShipmentForStop({ consolNo, stopSeq }) {
   return await getShipmentForSeq({ stopId });
 }
 
+async function fetchPendingPOD() {
+  const params = {
+    TableName: ADD_MILESTONE_TABLE_NAME,
+    IndexName: STATUS_INDEX,
+    KeyConditionExpression: '#status = :status and StatusCode = :statusCode',
+    ExpressionAttributeNames: {
+      '#status': 'Status',
+      '#type': 'Type',
+    },
+    ExpressionAttributeValues: {
+      ':status': status.PENDING,
+      ':statusCode': milestones.POD,
+    },
+    ProjectionExpression: 'OrderId, Housebill, StatusCode, RetryCount, #type, EventDateTime',
+  };
+  console.info('🙂 -> file: dynamo.js:414 -> fetchPendingPOD -> params:', params);
+  return await query(params);
+}
+
+async function updateDynamoRow({ housebill, statusCode, data }) {
+  try {
+    const { ExpressionAttributeNames, ExpressionAttributeValues, UpdateExpression } =
+      getDynamoUpdateParam(data);
+    const params = {
+      TableName: process.env.ADD_MILESTONE_TABLE_NAME,
+      Key: {
+        Housebill: housebill,
+        StatusCode: statusCode,
+      },
+      UpdateExpression,
+      ExpressionAttributeNames,
+      ExpressionAttributeValues,
+    };
+    console.info('🙂 -> file: dynamodb.js:159 -> updateDocStatusTableData -> params:', params);
+    return await dynamoDB.update(params).promise();
+  } catch (error) {
+    console.info('🙂 -> file: index.js:53 -> updateRow -> error:', error);
+    throw error;
+  }
+}
+
+async function updateStatusTable(
+  Housebill,
+  StatusCode,
+  apiStatus,
+  Payload = '',
+  Response = '',
+  ErrorMessage = '',
+  message = ''
+) {
+  try {
+    const updateParam = {
+      TableName: ADD_MILESTONE_TABLE_NAME,
+      Key: {
+        Housebill,
+        StatusCode,
+      },
+      UpdateExpression:
+        'set Payload = :payload, #Response = :response, #Status = :status, EventDateTime = :eventDateTime, ErrorMessage = :errorMessage, Message = :message',
+      ExpressionAttributeNames: {
+        '#Status': 'Status',
+        '#Response': 'Response',
+      },
+      ExpressionAttributeValues: {
+        ':payload': String(Payload),
+        ':response': String(Response),
+        ':status': apiStatus,
+        ':eventDateTime': moment.tz('America/Chicago').format(),
+        ':errorMessage': ErrorMessage,
+        ':message': message,
+      },
+    };
+    console.info('🙂 -> file: index.js:125 -> updateParam:', updateParam);
+    return await dynamoDB.update(updateParam).promise();
+  } catch (err) {
+    console.error('🙂 -> file: index.js:224 -> err:', err);
+    throw err;
+  }
+}
+
 module.exports = {
   getMovementOrder,
   getOrder,
@@ -412,4 +560,8 @@ module.exports = {
   getConsolStopHeader,
   getShipmentForSeq,
   getShipmentForStop,
+  fetchPendingPOD,
+  updateDynamoRow,
+  getTotalStop,
+  updateStatusTable,
 };

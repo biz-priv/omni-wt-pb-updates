@@ -11,39 +11,53 @@ const {
 } = require('../shared/dynamo');
 const moment = require('moment-timezone');
 const { getOrders, checkForPod, publishSNSTopic } = require('../shared/apis');
-const { types, milestones } = require('../shared/helper');
+const {
+  types,
+  milestones,
+  status,
+  deleteMassageFromQueue,
+  getActualTimestamp,
+} = require('../shared/helper');
 
-const { ADD_MILESTONE_TABLE_NAME } = process.env;
+const { ADD_MILESTONE_TABLE_NAME, STOP_STREAM_QUEUE_URL } = process.env;
 
-exports.handler = async (event) => {
+let functionName;
+exports.handler = async (event, context) => {
   console.info('Event: ', JSON.stringify(event));
+  functionName = _.get(context, 'functionName');
 
   const records = _.get(event, 'Records', []);
+
   if (_.get(records, 'eventName') === 'INSERT' || _.get(records, 'eventName') === 'REMOVE') {
     console.info('SKipping Insert/Remove Event');
     return;
   }
-  const promises = records.map(async (record) => {
+  const promises = records.map(async (oneRecord) => {
+    const body = _.get(oneRecord, 'body', '');
+    let { Message: record } = JSON.parse(body);
+    record = JSON.parse(record);
+
     let stopId;
     let StatusCode;
     let Housebill;
     let orderId;
+    const receiptHandle = _.get(oneRecord, 'receiptHandle');
     try {
-      const newUnmarshalledRecord = AWS.DynamoDB.Converter.unmarshall(record.dynamodb.NewImage);
-      const oldUnmarshalledRecord = AWS.DynamoDB.Converter.unmarshall(record.dynamodb.OldImage);
+      const newUnMarshalledRecord = AWS.DynamoDB.Converter.unmarshall(record.dynamodb.NewImage);
+      const oldUnMarshalledRecord = AWS.DynamoDB.Converter.unmarshall(record.dynamodb.OldImage);
 
-      stopId = _.get(newUnmarshalledRecord, 'id', '');
+      stopId = _.get(newUnMarshalledRecord, 'id', '');
       console.info('id coming from stop table:', stopId);
 
-      const oldActualArrival = _.get(oldUnmarshalledRecord, 'actual_arrival', '');
-      const newActualArrival = _.get(newUnmarshalledRecord, 'actual_arrival', '');
-      const newStopType = _.get(newUnmarshalledRecord, 'stop_type', '');
+      const oldActualArrival = _.get(oldUnMarshalledRecord, 'actual_arrival', '');
+      const newActualArrival = _.get(newUnMarshalledRecord, 'actual_arrival', '');
+      const newStopType = _.get(newUnMarshalledRecord, 'stop_type', '');
 
-      const oldActualDeparture = _.get(oldUnmarshalledRecord, 'actual_departure', '');
-      const newActualDeparture = _.get(newUnmarshalledRecord, 'actual_departure', '');
+      const oldActualDeparture = _.get(oldUnMarshalledRecord, 'actual_departure', '');
+      const newActualDeparture = _.get(newUnMarshalledRecord, 'actual_departure', '');
 
-      const oldConfirmed = _.get(oldUnmarshalledRecord, 'confirmed', '');
-      const newConfirmed = _.get(newUnmarshalledRecord, 'confirmed', '');
+      const oldConfirmed = _.get(oldUnMarshalledRecord, 'confirmed', '');
+      const newConfirmed = _.get(newUnMarshalledRecord, 'confirmed', '');
 
       console.info('Old Actual Arrival: ', oldActualArrival);
       console.info('New Actual Arrival: ', newActualArrival);
@@ -56,10 +70,8 @@ exports.handler = async (event) => {
 
       console.info('New Stop Type: ', newStopType);
 
-      orderId = _.get(newUnmarshalledRecord, 'order_id', '');
+      orderId = _.get(newUnMarshalledRecord, 'order_id', '');
       console.info('Order Id coming from the Event:', orderId);
-
-      Housebill = await getOrder(orderId);
 
       const shipmentDetails = await getShipmentDetails({ shipmentId: orderId });
       console.info(
@@ -74,11 +86,13 @@ exports.handler = async (event) => {
         return 'Shipment is not created through our system. SKIPPING.';
       }
 
+      Housebill = await getOrder(orderId);
+
       const totalSequenceSteps = await getStop(orderId);
       const maxSequenceId = _.size(totalSequenceSteps);
       console.info('Number of Records in Stop table for this record:', maxSequenceId); // max value
 
-      const seqId = await _.get(newUnmarshalledRecord, 'movement_sequence', '');
+      const seqId = await _.get(newUnMarshalledRecord, 'movement_sequence', '');
       console.info('Sequence Id for the Record from Stop table for this record:', seqId); // seqId
 
       // Status Code = APL
@@ -100,7 +114,10 @@ exports.handler = async (event) => {
           orderId,
           Housebill
         );
-        await updateMilestone(finalPayload);
+        await updateMilestone({
+          ...finalPayload,
+          EventDateTime: getActualTimestamp(newActualArrival),
+        });
       }
 
       // status Code = TTC
@@ -121,7 +138,11 @@ exports.handler = async (event) => {
           orderId,
           Housebill
         );
-        await updateMilestone(finalPayload);
+        await updateMilestone({
+          ...finalPayload,
+          EventDateTime: getActualTimestamp(newActualDeparture),
+        });
+
         // adding COB/IN Transit
         StatusCode = milestones.COB;
         if ([types.MULTISTOP].includes(type)) StatusCode = `${milestones.COB}#${seqId}`;
@@ -134,7 +155,10 @@ exports.handler = async (event) => {
           orderId,
           Housebill
         );
-        await updateMilestone(finalPayload);
+        await updateMilestone({
+          ...finalPayload,
+          EventDateTime: getActualTimestamp(newActualDeparture),
+        });
       }
 
       // status Code = AAD
@@ -156,7 +180,10 @@ exports.handler = async (event) => {
           orderId,
           Housebill
         );
-        await updateMilestone(finalPayload);
+        await updateMilestone({
+          ...finalPayload,
+          EventDateTime: getActualTimestamp(newActualArrival),
+        });
       }
 
       // status Code = DWP or DEL
@@ -164,8 +191,7 @@ exports.handler = async (event) => {
         (oldActualDeparture === null || oldActualDeparture === '') &&
         newActualDeparture !== null &&
         newActualDeparture !== '' &&
-        newStopType === 'SO' &&
-        [types.MULTISTOP].includes(type)
+        newStopType === 'SO'
       ) {
         const podStatus = await checkForPod(orderId);
 
@@ -181,7 +207,7 @@ exports.handler = async (event) => {
 
         console.info('WT status code :', StatusCode);
         console.info('resultMessage :', resultMessage);
-        StatusCode = `${StatusCode}#${seqId}`;
+        if ([types.MULTISTOP].includes(type)) StatusCode = `${StatusCode}#${seqId}`;
         console.info('Sending Status Code: ', StatusCode);
         const finalPayload = await getPayloadForStopDb(
           StatusCode,
@@ -191,7 +217,10 @@ exports.handler = async (event) => {
           orderId,
           Housebill
         );
-        await updateMilestone(finalPayload);
+        await updateMilestone({
+          ...finalPayload,
+          EventDateTime: getActualTimestamp(newActualDeparture),
+        });
       }
 
       // status Code = APP
@@ -233,22 +262,27 @@ exports.handler = async (event) => {
       }
     } catch (error) {
       console.error('Error in handler:', error);
-      // id, statuscode, housebill, eventdatetime, sattus,
-      await updateMilestone({
+
+      await publishSNSTopic({
+        id: orderId,
+        status: StatusCode,
+        functionName,
+        message: `Error processing StopId: ${stopId}.\n
+        ${error.message}.\n
+        Please check the error message in DynamoDb Table ${ADD_MILESTONE_TABLE_NAME} for complete error`,
+      });
+
+      await deleteMassageFromQueue({ queueUrl: STOP_STREAM_QUEUE_URL, receiptHandle });
+
+      if (!Housebill) return 'Could not fetch housebill number.';
+      return await updateMilestone({
         OrderId: orderId,
         EventDateTime: moment.tz('America/Chicago').format(),
         Housebill: Housebill?.toString(),
         ErrorMessage: error.message,
-        StatusCode: StatusCode ?? 'FAILED',
-        Status: 'FAILED',
+        StatusCode: StatusCode ?? status.FAILED,
+        Status: status.FAILED,
       });
-      // add sns here
-      await publishSNSTopic({
-        id: orderId,
-        status: StatusCode,
-        message: `Error processing StopId: ${stopId}, ${error.message}. \n Please check the error meesage in DynamoDb Table ${ADD_MILESTONE_TABLE_NAME} for complete error`,
-      });
-      throw error;
     }
   });
 
@@ -258,18 +292,19 @@ exports.handler = async (event) => {
 async function getPayloadForStopDb(StatusCode, stopId, stopType, type, orderId, housebill) {
   try {
     let modifiedStopId = stopId;
-    let lastStop;
-    if ([types.MULTISTOP].includes(type)) {
-      const orderDetails = await getOrders({ id: orderId });
-      console.info('🙂 -> file: index.js:253 -> getPayloadForStopDb -> stops:', orderDetails);
-      const stops = _.get(orderDetails, 'stops', []);
-      console.info('🙂 -> file: index.js:256 -> getPayloadForStopDb -> stops:', stops);
-      const firstStop = _.get(stops, '[0].id');
-      console.info('🙂 -> file: index.js:204 -> getPayloadForStopDb -> firstStop:', firstStop);
-      lastStop = _.get(stops, `[${_.size(stops) - 1}].id`);
-      console.info('🙂 -> file: index.js:261 -> getPayloadForStopDb -> lastStop:', lastStop);
-      modifiedStopId = stopType === 'PU' ? firstStop : lastStop;
-    }
+    // let lastStop;
+    // if ([types.MULTISTOP].includes(type)) {
+    const orderDetails = await getOrders({ id: orderId });
+    console.info('🙂 -> file: index.js:253 -> getPayloadForStopDb -> stops:', orderDetails);
+    const stops = _.get(orderDetails, 'stops', []);
+    console.info('🙂 -> file: index.js:256 -> getPayloadForStopDb -> stops:', stops);
+    const firstStop = _.get(stops, '[0].id');
+    console.info('🙂 -> file: index.js:204 -> getPayloadForStopDb -> firstStop:', firstStop);
+    const lastStop = _.get(stops, `[${_.size(stops) - 1}].id`);
+    console.info('🙂 -> file: index.js:261 -> getPayloadForStopDb -> lastStop:', lastStop);
+    modifiedStopId = stopType === 'PU' ? firstStop : lastStop;
+    // }
+
     if (modifiedStopId !== lastStop) await getMovement(modifiedStopId, stopType);
 
     const finalPayload = {
@@ -280,7 +315,7 @@ async function getPayloadForStopDb(StatusCode, stopId, stopType, type, orderId, 
       Payload: '',
       Response: '',
       ErrorMessage: '',
-      Status: 'READY',
+      Status: status.READY,
       Type: type,
     };
 
@@ -288,6 +323,6 @@ async function getPayloadForStopDb(StatusCode, stopId, stopType, type, orderId, 
     return finalPayload;
   } catch (error) {
     console.error('Error in getPayloadForStopDb function: ', error);
-    throw error;
+    return false;
   }
 }
