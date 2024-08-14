@@ -1,14 +1,14 @@
 ---
 function:
   handler: src/pod-upload/index.handler
-  name: ${self:service}-upload-pod-${self:provider.stage}
+  name: pb-wt-214-upload-pod-${self:provider.stage}
   description: OMNI PB Real Time Upload POD Lambda - ${self:provider.stage}
 
   layers:
     - { Ref: NodeModulesLambdaLayer }
   timeout: 600
   tags:
-    Name: ${self:service}-upload-pod-${self:provider.stage}
+    Name: pb-wt-214-upload-pod-${self:provider.stage}
   package:
     patterns:
       - '!**/*'

@@ -1,14 +1,14 @@
 ---
 function:
   handler: src/stop/index.handler
-  name: ${self:service}-stop-table-stream-${self:provider.stage}
+  name: pb-wt-214-stop-table-stream-${self:provider.stage}
   description: OMNI PB Real Time Stop Table Stream Process - ${self:provider.stage}
 
   layers:
     - { Ref: NodeModulesLambdaLayer }
   timeout: 300
   tags:
-    Name: ${self:service}-stop-table-stream-${self:provider.stage}
+    Name: pb-wt-214-stop-table-stream-${self:provider.stage}
   package:
     patterns:
       - '!**/*'
