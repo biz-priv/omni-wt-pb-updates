@@ -130,8 +130,8 @@ async function getPODId(orderId) {
     console.info('Entered POD STATUS CHECK function');
 
     // Get POD
-    const url = 'https://tms-lvlp.loadtracking.com/ws/api/images/O/0221320';
-    // const url = `${CHECK_POD_API_ENDPOINT}/${rowType}/${orderId}`;
+    // const url = 'https://tms-lvlp.loadtracking.com/ws/api/images/O/0221320';
+    const url = `${CHECK_POD_API_ENDPOINT}/${rowType}/${orderId}`;
 
     console.info('URL trying to fetch the details:', url);
 
@@ -178,8 +178,8 @@ async function getPOD(imageId) {
     console.info('imageId is: ', imageId);
 
     // Get POD
-    const url = `https://tms-lvlp.loadtracking.com/ws/api/images/${imageId}`;
-    // const url = `${CHECK_POD_API_ENDPOINT}/${imageId}`;
+    // const url = `https://tms-lvlp.loadtracking.com/ws/api/images/${imageId}`;
+    const url = `${CHECK_POD_API_ENDPOINT}/${imageId}`;
 
     console.info('URL trying to fetch the details:', url);
 
