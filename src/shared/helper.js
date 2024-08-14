@@ -157,7 +157,7 @@ async function addMilestoneApiDataForConsol(postData) {
   } catch (error) {
     const response = error.response;
     console.error('Error in addMilestoneApi', {
-      message: error.message,
+      message: _.get(error, 'message'),
       response: {
         status: response?.status,
         data: response?.data,
@@ -187,12 +187,12 @@ async function addMilestoneApiDataForNonConsol(postData) {
     }
     throw new Error(`API Request Failed: ${res}`);
   } catch (error) {
-    const response = error.response;
+    const response = _.get(error, 'response');
     console.error('Error in addMilestoneApi', {
-      message: error.message,
+      message: _.get(error, 'message'),
       response: {
-        status: response?.status,
-        data: response?.data,
+        status: _.get(response, 'status'),
+        data: _.get(response, 'data'),
       },
     });
     throw error;

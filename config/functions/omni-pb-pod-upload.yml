@@ -38,7 +38,7 @@ function:
     CONSOL_STOP_HEADERS_CONSOL_INDEX: ${ssm:/omni-pb-wt/${self:provider.stage}/consol-stop-header-consol-index}
     CONSOL_STOP_ITEMS: ${ssm:/omni-wt-rt-updates/${self:provider.stage}/consol-stop-items/ddb.tableName}
     SHIPMENT_HEADER_TABLE: ${ssm:/omni-wt-rt-updates/${self:provider.stage}/shipment-header/ddb.tableName}
-    CHECK_POD_API_ENDPOINT: ${ssm:/omni-ivlp/${self:provider.stage}/loadtracking/url}
+    CHECK_POD_API_ENDPOINT: ${ssm:/omni-lvlp/${self:provider.stage}/loadtracking/url}
     MOVEMENT_ORDER_INDEX_NAME: ${ssm:/omni-pb-rt/${self:provider.stage}/movement-order/ddb.index}
     MOVEMENT_ORIGIN_INDEX_NAME: ${ssm:/omni-pb-rt/${self:provider.stage}/movement-originstopIndex/ddb.index}
     MOVEMENT_DESTINATION_INDEX_NAME: ${ssm:/omni-pb-rt/${self:provider.stage}/movement-deststop/ddb.index}

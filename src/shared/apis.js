@@ -18,8 +18,6 @@ const {
   ENVIRONMENT,
   ERROR_SNS_TOPIC_ARN,
   CHECK_POD_API_ENDPOINT,
-  PB_USERNAME,
-  PB_PASSWORD,
   ADD_MILESTONE_URL,
   ADD_DOCUMENT_URL,
   ADD_DOCUMENT_API_KEY,
@@ -49,8 +47,6 @@ async function getOrders({ id }) {
 
 async function checkForPod(orderId) {
   try {
-    const username = PB_USERNAME;
-    const password = PB_PASSWORD;
     const mcleodHeaders = {
       'Accept': 'application/json',
       'Content-Type': 'application/json',
@@ -60,16 +56,13 @@ async function checkForPod(orderId) {
     console.info('orderId is ', orderId);
     console.info('Entered POD STATUS CHECK function');
 
-    // Basic Auth header
-    const authHeader = `Basic ${Buffer.from(`${username}:${password}`).toString('base64')}`;
-
     // Get POD
     const url = `${CHECK_POD_API_ENDPOINT}/${rowType}/${orderId}`;
 
     console.info('URL trying to fetch the details:', url);
 
     const response = await axios.get(url, {
-      headers: { ...mcleodHeaders, Authorization: authHeader },
+      headers: { ...mcleodHeaders, Authorization: AUTH },
     });
 
     console.info('RESPONSE: ', response);
@@ -91,7 +84,7 @@ async function checkForPod(orderId) {
 
     if (!output) return 'N';
 
-    const photoType = output[0].descr.toUpperCase();
+    const photoType = _.get(output, '[0].descr', '').toUpperCase();
 
     // Check to see if there is a POD
     if (photoType === '01-BILL OF LADING') {
@@ -127,8 +120,6 @@ async function publishSNSTopic({ id, status, message, functionName }) {
 
 async function getPODId(orderId) {
   try {
-    const username = PB_USERNAME;
-    const password = PB_PASSWORD;
     const mcleodHeaders = {
       'Accept': 'application/json',
       'Content-Type': 'application/json',
@@ -138,9 +129,6 @@ async function getPODId(orderId) {
     console.info('orderId is ', orderId);
     console.info('Entered POD STATUS CHECK function');
 
-    // Basic Auth header
-    const authHeader = `Basic ${Buffer.from(`${username}:${password}`).toString('base64')}`;
-
     // Get POD
     const url = 'https://tms-lvlp.loadtracking.com/ws/api/images/O/0221320';
     // const url = `${CHECK_POD_API_ENDPOINT}/${rowType}/${orderId}`;
@@ -148,7 +136,7 @@ async function getPODId(orderId) {
     console.info('URL trying to fetch the details:', url);
 
     const response = await axios.get(url, {
-      headers: { ...mcleodHeaders, Authorization: authHeader },
+      headers: { ...mcleodHeaders, Authorization: AUTH },
     });
 
     console.info('RESPONSE: ', response);
@@ -183,16 +171,11 @@ async function getPODId(orderId) {
 
 async function getPOD(imageId) {
   try {
-    const username = PB_USERNAME;
-    const password = PB_PASSWORD;
     const mcleodHeaders = {
       Accept: 'application/pdf',
     };
 
     console.info('imageId is: ', imageId);
-
-    // Basic Auth header
-    const authHeader = `Basic ${Buffer.from(`${username}:${password}`).toString('base64')}`;
 
     // Get POD
     const url = `https://tms-lvlp.loadtracking.com/ws/api/images/${imageId}`;
@@ -201,7 +184,7 @@ async function getPOD(imageId) {
     console.info('URL trying to fetch the details:', url);
 
     const response = await axios.get(url, {
-      headers: { ...mcleodHeaders, Authorization: authHeader },
+      headers: { ...mcleodHeaders, Authorization: AUTH },
       responseType: 'arraybuffer',
     });
 

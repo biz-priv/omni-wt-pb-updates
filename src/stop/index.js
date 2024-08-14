@@ -51,8 +51,8 @@ exports.handler = async (event, context) => {
     let orderId;
     const receiptHandle = _.get(oneRecord, 'receiptHandle');
     try {
-      const newUnMarshalledRecord = AWS.DynamoDB.Converter.unmarshall(record.dynamodb.NewImage);
-      const oldUnMarshalledRecord = AWS.DynamoDB.Converter.unmarshall(record.dynamodb.OldImage);
+      const newUnMarshalledRecord = AWS.DynamoDB.Converter.unmarshall(_.get(record, 'dynamodb.NewImage'));
+      const oldUnMarshalledRecord = AWS.DynamoDB.Converter.unmarshall(_.get(record, 'dynamodb.OldImage'));
 
       stopId = _.get(newUnMarshalledRecord, 'id', '');
       console.info('id coming from stop table:', stopId);
@@ -276,7 +276,7 @@ exports.handler = async (event, context) => {
         status: StatusCode,
         functionName,
         message: `Error processing StopId: ${stopId}.\n
-        ${error.message}.\n
+        ${_.get(error, 'message')}.\n
         Please check the error message in DynamoDb Table ${ADD_MILESTONE_TABLE_NAME} for complete error`,
       });
 
@@ -287,7 +287,7 @@ exports.handler = async (event, context) => {
         OrderId: orderId,
         EventDateTime: moment.tz('America/Chicago').format(),
         Housebill: Housebill?.toString(),
-        ErrorMessage: error.message,
+        ErrorMessage: _.get(error, 'message'),
         StatusCode: StatusCode ?? status.FAILED,
         Status: status.FAILED,
       });

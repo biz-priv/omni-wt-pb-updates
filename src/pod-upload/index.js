@@ -118,7 +118,7 @@ module.exports.handler = async (event, context) => {
         return true;
       } catch (error) {
         console.error('Error in getPODId function:', error);
-        dynamoUpdateData.Message = error.message;
+        dynamoUpdateData.Message = _.get(error, 'message');
         dynamoUpdateData.Status = status.FAILED;
         await updateDynamoRow({ housebill, statusCode, data: dynamoUpdateData });
         return await publishSNSTopic({
@@ -158,7 +158,7 @@ async function uploadPODForNonConsol({ base64, housebill, eventDateTime }) {
   } catch (error) {
     failedRecords.push({
       Housebill: housebill,
-      ErrorMessage: error.message,
+      ErrorMessage: _.get(error, 'message'),
       Status: status.FAILED,
     });
   }
@@ -214,7 +214,7 @@ async function uploadPODForConsol({ base64, housebill, type, eventDateTime }) {
       failedRecords.push({
         ConsolNo: housebill,
         FK_OrderNo: _.get(shipment, 'FK_OrderNo'),
-        ErrorMessage: error.message,
+        ErrorMessage: _.get(error, 'message'),
         Statue: status.FAILED,
       });
     }

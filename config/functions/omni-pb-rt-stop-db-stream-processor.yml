@@ -30,7 +30,7 @@ function:
     CONSOL_STATUS_TABLE_NAME: ${ssm:/omni-live-204/${self:provider.stage}/consol-status/ddb.tableName}
     GET_ORDERS_API_ENDPOINT: ${ssm:/omni-204-create-shipment/${self:provider.stage}/get-orders.url}
     AUTH: ${ssm:/omni-204-create-shipment/${self:provider.stage}/apis.auth}
-    CHECK_POD_API_ENDPOINT: ${ssm:/omni-ivlp/${self:provider.stage}/loadtracking/url}
+    CHECK_POD_API_ENDPOINT: ${ssm:/omni-lvlp/${self:provider.stage}/loadtracking/url}
     MOVEMENT_ORDER_INDEX_NAME: ${ssm:/omni-pb-rt/${self:provider.stage}/movement-order/ddb.index}
     MOVEMENT_ORIGIN_INDEX_NAME: ${ssm:/omni-pb-rt/${self:provider.stage}/movement-originstopIndex/ddb.index}
     MOVEMENT_DESTINATION_INDEX_NAME: ${ssm:/omni-pb-rt/${self:provider.stage}/movement-deststop/ddb.index}

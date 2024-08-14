@@ -163,7 +163,7 @@ module.exports.handler = async (event, context) => {
         await updateMilestone({
           EventDateTime: moment.tz('America/Chicago').format(),
           Housebill: Housebill.toString(),
-          ErrorMessage: error.message,
+          ErrorMessage: _.get(error, 'message'),
           StatusCode,
           Status: status.FAILED,
         });
@@ -173,7 +173,7 @@ module.exports.handler = async (event, context) => {
           status: StatusCode,
           functionName,
           message: `Error processing Housebill: ${Housebill}.
-          \n${error.message}.\n
+          \n${_.get(error, 'message')}.\n
           Please check the error message in DynamoDb Table ${ADD_MILESTONE_TABLE_NAME} for complete error`,
         });
         return await deleteMassageFromQueue({ queueUrl: MOVEMENT_STREAM_QUEUE_URL, receiptHandle });
