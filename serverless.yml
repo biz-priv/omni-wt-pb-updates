@@ -1,4 +1,4 @@
-service: omni-214-pb-milestone-updates 
+service: omni-pb-wt-milestone-updates
 
 provider:
   name: aws
@@ -7,7 +7,8 @@ provider:
   versionFunctions: false
   tags: ${self:custom.tags}
   stackTags: ${self:custom.tags}
-  role: ${ssm:/omni-dw/${self:provider.stage}/lambda/role}
+  # role: ${ssm:/omni-dw/${self:provider.stage}/lambda/role}
+  runtime: nodejs20.x
   deploymentBucket:
     name: ${ssm:/omni-dw/${self:provider.stage}/sls/deployment/bucket}
     serverSideEncryption: AES256
@@ -16,6 +17,36 @@ provider:
       - ${ssm:/omni-dw/${self:provider.stage}/lambda/sgId}
     subnetIds:
       - ${ssm:/omni-dw/${self:provider.stage}/lambda/subnetA}
+  environment:
+    ERROR_SNS_TOPIC_ARN: ${ssm:/omni-power-broker/${self:provider.stage}/error-notification/sns/arn}
+  iamRoleStatements:
+    - Effect: 'Allow'
+      Action:
+        - logs:CreateLogGroup
+        - logs:CreateLogStream
+        - logs:PutLogEvents
+        - ec2:CreateNetworkInterface
+        - ec2:DescribeNetworkInterfaces
+        - ec2:DetachNetworkInterface
+        - ec2:DeleteNetworkInterface
+        - ec2:AssignPrivateIpAddresses
+        - ec2:UnassignPrivateIpAddresses
+        - sqs:GetQueueUrl
+        - sqs:GetQueueAttributes
+        - sqs:ReceiveMessage
+        - sqs:DeleteMessage
+        - sqs:SendMessageBatch
+        - sqs:SendMessage
+        - secretsmanager:*
+        - sns:*
+        - ses:*
+        - dynamodb:PutItem
+        - dynamodb:UpdateItem
+        - dynamodb:GetItem
+        - dynamodb:Query
+        - dynamodb:DeleteItem
+        - dynamodb:Scan
+      Resource: '*'
 
 custom:
   region: ${opt:region, 'us-east-1'}
@@ -42,7 +73,7 @@ package:
   individually: true
 
 functions:
-  omni-pb-rt-movement-stream: ${file(config/functions/omni-pb-rt-movement-stream.yml):function}
-  # test-lambda: ${file(config/functions/omni-pb-rt-test.yml):function}
-
-
+  omni-pb-rt-movement-stream-processor: ${file(config/functions/omni-pb-rt-movement-stream-processor.yml):function}
+  omni-pb-rt-stop-db-stream-processor: ${file(config/functions/omni-pb-rt-stop-db-stream-processor.yml):function}
+  omni-pb-add-milestone: ${file(config/functions/omni-pb-add-milestone.yml):function}
+  omni-pb-pod-upload: ${file(config/functions/omni-pb-pod-upload.yml):function}

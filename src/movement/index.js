@@ -1,121 +1,189 @@
+/*
+ * File: src/movement/index.js
+ * Project: PB-WT 214
+ * Author: Bizcloud Experts
+ * Date: 2024-08-14
+ * Confidential and Proprietary
+ */
+
+'use strict';
+
 const AWS = require('aws-sdk');
 const _ = require('lodash');
-const { getMovementOrder,getOrder,updateMilestone} = require('../shared/dynamo');
+const {
+  getMovementOrder,
+  getOrder,
+  updateMilestone,
+  getShipmentDetails,
+} = require('../shared/dynamo');
 const moment = require('moment-timezone');
-const sns = new AWS.SNS();
+const { publishSNSTopic } = require('../shared/apis');
+const { milestones, deleteMassageFromQueue, status } = require('../shared/helper');
 
-const { ERROR_SNS_TOPIC_ARN, ADD_MILESTONE_TABLE_NAME} = process.env;
+const { ADD_MILESTONE_TABLE_NAME, MOVEMENT_STREAM_QUEUE_URL } = process.env;
 
 let functionName;
+module.exports.handler = async (event, context) => {
+  console.info('Event coming in ', event);
+  functionName = _.get(context, functionName);
 
-module.exports.handler = async (event,context) => {
+  try {
+    const records = _.get(event, 'Records', []);
+    const promises = records.map(async (oneRecord) => {
+      let Id;
+      let StatusCode;
+      let Housebill = '';
+      const receiptHandle = _.get(oneRecord, 'receiptHandle');
+      try {
+        const body = _.get(oneRecord, 'body', '');
+        let { Message: record } = JSON.parse(body);
+        record = JSON.parse(record);
+        const newUnMarshalledRecord = AWS.DynamoDB.Converter.unmarshall(_.get(record, 'dynamodb.NewImage'));
+        const oldUnMarshalledRecord = AWS.DynamoDB.Converter.unmarshall(_.get(record, 'dynamodb.OldImage'));
 
-    let Id;
-    let StatusCode;
-    let Housebill;
+        Id = _.get(newUnMarshalledRecord, 'id');
+        console.info('id coming from movement table:', Id);
 
-    try {
-        functionName = _.get(context, 'functionName');
-        const records = _.get(event, 'Records', []);
-        const promises = records.map(async (record) => {
-            const newUnmarshalledRecord = AWS.DynamoDB.Converter.unmarshall(record.dynamodb.NewImage);
-            const oldUnmarshalledRecord = AWS.DynamoDB.Converter.unmarshall(record.dynamodb.OldImage);
+        const oldBrokerageStatus = _.get(oldUnMarshalledRecord, 'brokerage_status');
+        const newBrokerageStatus = _.get(newUnMarshalledRecord, 'brokerage_status');
+        console.info('oldBrokerageStatus:', oldBrokerageStatus);
+        console.info('newBrokerageStatus:', newBrokerageStatus);
 
-            Id = _.get(newUnmarshalledRecord, 'id');
-            console.info('id coming from movement table:', Id);
+        const oldStatus = _.get(oldUnMarshalledRecord, 'status');
+        const newStatus = _.get(newUnMarshalledRecord, 'status');
+        console.info('oldStatus:', oldStatus);
+        console.info('newStatus:', newStatus);
 
-            const oldBrokerageStatus = _.get(oldUnmarshalledRecord, 'brokerage_status');
-            const newBrokerageStatus = _.get(newUnmarshalledRecord, 'brokerage_status');
-            console.info('oldBrokerageStatus:', oldBrokerageStatus);
-            console.info('newBrokerageStatus:', newBrokerageStatus);
+        console.info('brokerage_status coming from movement table is:', newBrokerageStatus);
 
-            let oldStatus = _.get(oldUnmarshalledRecord, 'status');
-            let newStatus = _.get(newUnmarshalledRecord, 'status');
-            console.info('oldStatus:', oldStatus);
-            console.info('newStatus:', newStatus);
+        const orderId = await getMovementOrder(Id);
+        console.info('🙂 -> file: index.js:50 -> promises -> orderId:', orderId);
 
-            console.info('brokerage_status coming from movement table is:', newBrokerageStatus);
+        if (!orderId) return 'Movement Order table is not populated. Can not fetch order id.';
 
-            if (oldBrokerageStatus !== 'DISPATCH' && newBrokerageStatus === 'DISPATCH') {
-                StatusCode = 'DIS';
+        Housebill = await getOrder(orderId);
 
-                console.info("Value of Id", Id);
+        const shipmentDetails = await getShipmentDetails({ shipmentId: orderId });
+        console.info(
+          '🙂 -> file: index.js:45 -> promises -> shipmentDetails:',
+          JSON.stringify(shipmentDetails)
+        );
 
-                const order_id  = await getMovementOrder(Id);
-                Housebill  = await getOrder(order_id);
+        const type = _.get(shipmentDetails, 'Type');
+        console.info('🙂 -> file: index.js:48 -> promises -> type:', type);
+        if (!type || !shipmentDetails) {
+          console.info('Shipment is not created through our system. SKIPPING.');
+          return 'Shipment is not created through our system. SKIPPING.';
+        }
 
-                const finalPayload = {
-                    Id,
-                    StatusCode,
-                    Housebill: Housebill.toString(),
-                    EventDateTime: moment.tz('America/Chicago').format(),
-                    Payload: '',
-                    Response: '',
-                    ErrorMessage: '',
-                    Status: 'PENDING'
-                };
+        if (oldBrokerageStatus !== 'DISPATCH' && newBrokerageStatus === 'DISPATCH') {
+          StatusCode = milestones.TLD;
 
-                console.info(finalPayload);
-                await updateMilestone(finalPayload)
-            }
+          console.info('Value of Id', Id);
 
-            if (oldStatus === 'A' && newStatus === 'C') {
-                StatusCode = 'BOO';
+          const finalPayload = {
+            OrderId: orderId,
+            StatusCode,
+            Housebill: Housebill.toString(),
+            EventDateTime: moment.tz('America/Chicago').format(),
+            Payload: '',
+            Response: '',
+            ErrorMessage: '',
+            Status: 'READY',
+            Type: type,
+          };
 
-                console.info("Value of Id", Id);
+          console.info(finalPayload);
+          await updateMilestone(finalPayload);
+        }
 
-                const order_id  = await getMovementOrder(Id);
-                const Housebill  = await getOrder(order_id);
+        if (oldStatus === 'A' && newStatus === 'C') {
+          StatusCode = milestones.BOO;
 
-                const finalPayload = {
-                    Id,
-                    StatusCode,
-                    Housebill: Housebill.toString(),
-                    EventDateTime: moment.tz('America/Chicago').format(),
-                    Payload: '',
-                    Response: '',
-                    ErrorMessage: '',
-                    Status: 'PENDING'
-                };
+          console.info('Value of Id', Id);
 
-                console.info(finalPayload);
-                await updateMilestone(finalPayload)
+          const finalPayload = {
+            OrderId: orderId,
+            StatusCode,
+            Housebill: Housebill.toString(),
+            EventDateTime: moment.tz('America/Chicago').format(),
+            Payload: '',
+            Response: '',
+            ErrorMessage: '',
+            Status: 'READY',
+            Type: type,
+          };
 
-            }
+          console.info(finalPayload);
+          await updateMilestone(finalPayload);
+        }
+
+        // if (oldStatus !== 'D' && newStatus === 'D' && ![types.MULTISTOP].includes(type)) {
+        //   const movementId = Id;
+
+        //   if (!movementId) {
+        //     return {
+        //       statusCode: 400,
+        //       body: JSON.stringify('Movement ID is required'),
+        //     };
+        //   }
+
+        //   const podStatus = await checkForPod(orderId);
+
+        //   let resultMessage;
+
+        //   if (podStatus === 'Y') {
+        //     resultMessage = 'POD is Available';
+        //     StatusCode = milestones.DEL;
+        //   } else {
+        //     resultMessage = 'POD is Unavailable';
+        //     StatusCode = milestones.DWP;
+        //   }
+
+        //   console.info('WT status code :', StatusCode);
+        //   console.info('resultMessage :', resultMessage);
+
+        //   const finalPayload = {
+        //     OrderId: orderId,
+        //     StatusCode,
+        //     Housebill: Housebill.toString(),
+        //     EventDateTime: moment.tz('America/Chicago').format(),
+        //     Payload: '',
+        //     Response: '',
+        //     ErrorMessage: '',
+        //     Status: 'READY',
+        //     Type: type,
+        //   };
+
+        //   console.info(finalPayload);
+        //   await updateMilestone(finalPayload);
+        // }
+        return true;
+      } catch (error) {
+        await updateMilestone({
+          EventDateTime: moment.tz('America/Chicago').format(),
+          Housebill: Housebill.toString(),
+          ErrorMessage: _.get(error, 'message'),
+          StatusCode,
+          Status: status.FAILED,
         });
 
-        await Promise.all(promises);
-    } catch (error) {
-        console.error('Error in handler:', error);
-        
-        await updateMilestone({
-            Id ,
-            EventDateTime: moment.tz('America/Chicago').format(),
-            Housebill: Housebill.toString(),
-            ErrorMessage: error.message,
-            StatusCode: 'FAILED'
-          });
-        
-          await publishSNSTopic({
-            message: `Error processing Id: ${Id}, ${e.message}. \n Please check the error meesage in DynamoDb Table ${ADD_MILESTONE_TABLE_NAME} for complete error`,
-            Id
-          });
-        throw error
-    }
-};
+        await publishSNSTopic({
+          id: Housebill,
+          status: StatusCode,
+          functionName,
+          message: `Error processing Housebill: ${Housebill}.
+          \n${_.get(error, 'message')}.\n
+          Please check the error message in DynamoDb Table ${ADD_MILESTONE_TABLE_NAME} for complete error`,
+        });
+        return await deleteMassageFromQueue({ queueUrl: MOVEMENT_STREAM_QUEUE_URL, receiptHandle });
+      }
+    });
 
-async function publishSNSTopic({ Id, message}) {
-    try {
-      const params = {
-        TopicArn: ERROR_SNS_TOPIC_ARN,
-        Subject: `PB ADD MILESTONE ERROR NOTIFICATION - ${STAGE} ~ Id: ${Id}`,
-        Message: `An error occurred in ${functionName}: ${message}`
-      };
-  
-      await sns.publish(params).promise();
-    } catch (error) {
-      console.error('Error publishing to SNS topic:', error);
-      throw error;
-    }
+    await Promise.all(promises);
+  } catch (error) {
+    console.error('Error in handler:', error);
+    return false;
   }
-  
+  return true;
+};

@@ -1,0 +1,37 @@
+---
+function:
+  handler: src/movement/index.handler
+  name: ${self:service}-movement-table-stream-processor-${self:provider.stage}
+  description: OMNI PB Real Time Movement Stream Process - ${self:provider.stage}
+
+  layers:
+    - { Ref: NodeModulesLambdaLayer }
+  timeout: 300
+  tags:
+    Name: ${self:service}-movement-table-stream-processor-${self:provider.stage}
+  package:
+    patterns:
+      - '!**/*'
+      - 'src/movement/index.js'
+      - 'src/shared/*'
+
+  events:
+    - sqs:
+        arn: ${ssm:/omni-pb-wt/${self:provider.stage}/movement-table-stream-queue-arn}
+        batchSize: 1
+
+  environment:
+    ENVIRONMENT: ${self:provider.stage}
+    ERROR_SNS_TOPIC_ARN: ${ssm:/omni-power-broker/${self:provider.stage}/error-notification/sns/arn}
+    ORDERS_TABLE_NAME: ${ssm:/omni-pb-rt/${self:provider.stage}/orders/db}
+    MOVEMENT_TABLE_NAME: ${ssm:/omni-pb-rt/${self:provider.stage}/movement/db}
+    ADD_MILESTONE_TABLE_NAME: ${ssm:/omni-pb-wt/${self:provider.stage}/milestones-update/db}
+    MOVEMENT_DB: ${ssm:/omni-pb-rt/${self:provider.stage}/movement/db}
+    MOVEMENT_ORDER_TABLE_NAME: ${ssm:/omni-pb-rt/${self:provider.stage}/movement-order/db}
+    ORDER_STATUS_TABLE_NAME: ${ssm:/omni-204-create-shipment/${self:provider.stage}/status/ddb.name}
+    CONSOL_STATUS_TABLE_NAME: ${ssm:/omni-live-204/${self:provider.stage}/consol-status/ddb.tableName}
+    CHECK_POD_API_ENDPOINT: ${ssm:/omni-lvlp/${self:provider.stage}/loadtracking/url}
+    MOVEMENT_ORDER_INDEX_NAME: ${ssm:/omni-pb-rt/${self:provider.stage}/movement-order/ddb.index}
+    MOVEMENT_ORIGIN_INDEX_NAME: ${ssm:/omni-pb-rt/${self:provider.stage}/movement-originstopIndex/ddb.index}
+    MOVEMENT_DESTINATION_INDEX_NAME: ${ssm:/omni-pb-rt/${self:provider.stage}/movement-deststop/ddb.index}
+    MOVEMENT_STREAM_QUEUE_URL: ${ssm:/omni-pb-wt/${self:provider.stage}/movement-table-stream-queue-url}

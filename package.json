@@ -26,8 +26,11 @@
     }
   },
   "dependencies": {
+    "aws-sdk": "^2.1657.0",
+    "axios": "^1.6.8",
     "lodash": "^4.17.21",
-    "moment-timezone": "^0.5.45"
+    "moment-timezone": "^0.5.45",
+    "xml-js": "^1.6.11"
   },
   "devDependencies": {
     "@commitlint/cli": "^18.4.4",
