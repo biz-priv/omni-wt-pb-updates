@@ -42,8 +42,7 @@ function:
     MOVEMENT_ORDER_INDEX_NAME: ${ssm:/omni-pb-rt/${self:provider.stage}/movement-order/ddb.index}
     MOVEMENT_ORIGIN_INDEX_NAME: ${ssm:/omni-pb-rt/${self:provider.stage}/movement-originstopIndex/ddb.index}
     MOVEMENT_DESTINATION_INDEX_NAME: ${ssm:/omni-pb-rt/${self:provider.stage}/movement-deststop/ddb.index}
-    PB_USERNAME: ${ssm:/omni-pb-wt/${self:provider.stage}/pb-username}
-    PB_PASSWORD: ${ssm:/omni-pb-wt/${self:provider.stage}/pb-password}
     STATUS_INDEX: ${ssm:/omni-pb-wt/${self:provider.stage}/milestones-update/db-status-index}
     ADD_DOCUMENT_URL: ${ssm:/omni-pb-wt/${self:provider.stage}/upload-doc-url}
     ADD_DOCUMENT_API_KEY: ${ssm:/omni-pb-wt/${self:provider.stage}/upload-doc-api-key}
+    AUTH: ${ssm:/omni-204-create-shipment/${self:provider.stage}/apis.auth}
