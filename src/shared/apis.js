@@ -220,8 +220,8 @@ async function uploadPODDoc({ housebill, base64 }) {
     console.info('🙂 -> file: apis.js:241 -> uploadPODDoc -> podUploadRes:', podUploadRes.data);
     return podUploadRes.data?.msg === 'Success';
   } catch (error) {
-    console.error('��� -> file: apis.js:242 -> uploadPODDoc -> error:', error);
-    return error;
+    console.error('🙂 -> file: apis.js:242 -> uploadPODDoc -> error:', error);
+    throw error;
   }
 }
 
