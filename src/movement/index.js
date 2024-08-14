@@ -38,8 +38,8 @@ module.exports.handler = async (event, context) => {
         const body = _.get(oneRecord, 'body', '');
         let { Message: record } = JSON.parse(body);
         record = JSON.parse(record);
-        const newUnMarshalledRecord = AWS.DynamoDB.Converter.unmarshall(record.dynamodb.NewImage);
-        const oldUnMarshalledRecord = AWS.DynamoDB.Converter.unmarshall(record.dynamodb.OldImage);
+        const newUnMarshalledRecord = AWS.DynamoDB.Converter.unmarshall(_.get(record, 'dynamodb.NewImage'));
+        const oldUnMarshalledRecord = AWS.DynamoDB.Converter.unmarshall(_.get(record, 'dynamodb.OldImage'));
 
         Id = _.get(newUnMarshalledRecord, 'id');
         console.info('id coming from movement table:', Id);
