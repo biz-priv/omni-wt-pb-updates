@@ -1,13 +1,13 @@
 ---
 function:
   handler: src/add-milestone/index.handler
-  name: ${self:service}-add-milestone-${self:provider.stage}
+  name: pb-wt-214-add-milestone-${self:provider.stage}
   description: OMNI PB Real Time Test Lambda - ${self:provider.stage}
   layers:
     - { Ref: NodeModulesLambdaLayer }
   timeout: 600
   tags:
-    Name: ${self:service}-add-milestone-${self:provider.stage}
+    Name: pb-wt-214-add-milestone-${self:provider.stage}
   package:
     patterns:
       - '!**/*'

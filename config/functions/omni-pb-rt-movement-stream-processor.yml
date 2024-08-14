@@ -1,14 +1,14 @@
 ---
 function:
   handler: src/movement/index.handler
-  name: ${self:service}-movement-table-stream-processor-${self:provider.stage}
+  name: pb-wt-214-movement-table-stream-processor-${self:provider.stage}
   description: OMNI PB Real Time Movement Stream Process - ${self:provider.stage}
 
   layers:
     - { Ref: NodeModulesLambdaLayer }
   timeout: 300
   tags:
-    Name: ${self:service}-movement-table-stream-processor-${self:provider.stage}
+    Name: pb-wt-214-movement-table-stream-processor-${self:provider.stage}
   package:
     patterns:
       - '!**/*'
