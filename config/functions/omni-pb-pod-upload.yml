@@ -1,0 +1,48 @@
+---
+function:
+  handler: src/pod-upload/index.handler
+  name: ${self:service}-upload-pod-${self:provider.stage}
+  description: OMNI PB Real Time Upload POD Lambda - ${self:provider.stage}
+
+  layers:
+    - { Ref: NodeModulesLambdaLayer }
+  timeout: 600
+  tags:
+    Name: ${self:service}-upload-pod-${self:provider.stage}
+  package:
+    patterns:
+      - '!**/*'
+      - 'src/pod-upload/index.js'
+      - 'src/shared/*'
+
+  events:
+    - schedule:
+        rate: rate(5 minutes)
+
+  environment:
+    ERROR_SNS_TOPIC_ARN: ${ssm:/omni-power-broker/${self:provider.stage}/error-notification/sns/arn}
+    ENVIRONMENT: ${self:provider.stage}
+    ORDERS_TABLE_NAME: ${ssm:/omni-pb-rt/${self:provider.stage}/orders/db}
+    MOVEMENT_ORDER_TABLE_NAME: ${ssm:/omni-pb-rt/${self:provider.stage}/movement-order/db}
+    MOVEMENT_TABLE_NAME: ${ssm:/omni-pb-rt/${self:provider.stage}/movement/db}
+    ADD_MILESTONE_TABLE_NAME: ${ssm:/omni-pb-wt/${self:provider.stage}/milestones-update/db}
+    ORDER_STATUS_TABLE_NAME: ${ssm:/omni-204-create-shipment/${self:provider.stage}/status/ddb.name}
+    CONSOL_STATUS_TABLE_NAME: ${ssm:/omni-live-204/${self:provider.stage}/consol-status/ddb.tableName}
+    ADD_MILESTONE_URL: ${ssm:/omni-ivia/${self:provider.stage}/addMilestone/url}
+    ADD_MILESTONE_URL_2: ${ssm:/omni-ivia/${self:provider.stage}/addMilestone/console/url}
+    WT_SOAP_USERNAME: ${ssm:/omni-dw/${self:provider.stage}/wt/soap/username}
+    ADDRESS_MAPPING_TABLE: ${ssm:/omni-ivia/${self:provider.stage}/address-mapping/ddb.tableName}
+    SHIPMENT_APAR_TABLE: ${ssm:/omni-wt-rt-updates/${self:provider.stage}/shipment-apar/ddb.tableName}
+    SHIPMENT_APAR_INDEX_KEY_NAME: ${ssm:/omni-wt-rt-updates/${self:provider.stage}/shipment-apar/ddb.ConsolNoIndex}
+    CONSOL_STOP_HEADERS: ${ssm:/omni-wt-rt-updates/${self:provider.stage}/consol-stop-headers/ddb.tableName}
+    CONSOL_STOP_HEADERS_CONSOL_INDEX: ${ssm:/omni-pb-wt/${self:provider.stage}/consol-stop-header-consol-index}
+    CONSOL_STOP_ITEMS: ${ssm:/omni-wt-rt-updates/${self:provider.stage}/consol-stop-items/ddb.tableName}
+    SHIPMENT_HEADER_TABLE: ${ssm:/omni-wt-rt-updates/${self:provider.stage}/shipment-header/ddb.tableName}
+    CHECK_POD_API_ENDPOINT: ${ssm:/omni-lvlp/${self:provider.stage}/loadtracking/url}
+    MOVEMENT_ORDER_INDEX_NAME: ${ssm:/omni-pb-rt/${self:provider.stage}/movement-order/ddb.index}
+    MOVEMENT_ORIGIN_INDEX_NAME: ${ssm:/omni-pb-rt/${self:provider.stage}/movement-originstopIndex/ddb.index}
+    MOVEMENT_DESTINATION_INDEX_NAME: ${ssm:/omni-pb-rt/${self:provider.stage}/movement-deststop/ddb.index}
+    STATUS_INDEX: ${ssm:/omni-pb-wt/${self:provider.stage}/milestones-update/db-status-index}
+    ADD_DOCUMENT_URL: ${ssm:/omni-pb-wt/${self:provider.stage}/upload-doc-url}
+    ADD_DOCUMENT_API_KEY: ${ssm:/omni-pb-wt/${self:provider.stage}/upload-doc-api-key}
+    AUTH: ${ssm:/omni-204-create-shipment/${self:provider.stage}/apis.auth}
