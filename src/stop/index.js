@@ -51,8 +51,12 @@ exports.handler = async (event, context) => {
     let orderId;
     const receiptHandle = _.get(oneRecord, 'receiptHandle');
     try {
-      const newUnMarshalledRecord = AWS.DynamoDB.Converter.unmarshall(_.get(record, 'dynamodb.NewImage'));
-      const oldUnMarshalledRecord = AWS.DynamoDB.Converter.unmarshall(_.get(record, 'dynamodb.OldImage'));
+      const newUnMarshalledRecord = AWS.DynamoDB.Converter.unmarshall(
+        _.get(record, 'dynamodb.NewImage')
+      );
+      const oldUnMarshalledRecord = AWS.DynamoDB.Converter.unmarshall(
+        _.get(record, 'dynamodb.OldImage')
+      );
 
       stopId = _.get(newUnMarshalledRecord, 'id', '');
       console.info('id coming from stop table:', stopId);
