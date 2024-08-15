@@ -16,13 +16,7 @@ const {
   consigneeIsCustomer,
   getShipmentHeaderData,
 } = require('../shared/dynamo');
-const {
-  getPODId,
-  getPOD,
-  uploadPODDoc,
-  markAsDelivered,
-  publishSNSTopic,
-} = require('../shared/apis');
+const { getPODId, getPOD, uploadPOD, markAsDelivered, publishSNSTopic } = require('../shared/apis');
 const moment = require('moment-timezone');
 const { status, types } = require('../shared/helper');
 
@@ -140,7 +134,7 @@ async function uploadPODForNonConsol({ base64, housebill, eventDateTime }) {
   const successRecords = [];
   const failedRecords = [];
   try {
-    const uploadPODDocResponse = await uploadPODDoc({ base64, housebill });
+    const uploadPODDocResponse = await uploadPOD({ base64, housebill });
     console.info(
       '🙂 -> file: index.js:30 -> promises -> uploadPODDocResponse:',
       uploadPODDocResponse
@@ -182,7 +176,7 @@ async function uploadPODForConsol({ base64, housebill, type, eventDateTime }) {
         });
         const housebillForShipment = _.get(shipmentHeaderData, '[0].Housebill');
         console.info('🙂 -> file: index.js:115 -> housebillForShipment:', housebillForShipment);
-        const uploadPODDocResponse = await uploadPODDoc({
+        const uploadPODDocResponse = await uploadPOD({
           base64,
           housebill: housebillForShipment,
         });
