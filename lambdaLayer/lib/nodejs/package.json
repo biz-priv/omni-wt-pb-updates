@@ -9,6 +9,7 @@
     "lodash": "^4.17.21",
     "moment-timezone": "^0.5.45",
     "uuid": "^9.0.1",
-    "xml-js": "^1.6.11"
+    "xml-js": "^1.6.11",
+    "xmlbuilder2": "^3.1.1"
   }
 }
