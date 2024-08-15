@@ -12,7 +12,6 @@ const AWS = require('aws-sdk');
 const _ = require('lodash');
 const {
   getMovementOrder,
-  getOrder,
   updateMilestone,
   getShipmentDetails,
 } = require('../shared/dynamo');
@@ -65,19 +64,25 @@ module.exports.handler = async (event, context) => {
 
         if (!orderId) return 'Movement Order table is not populated. Can not fetch order id.';
 
-        Housebill = await getOrder(orderId);
-
         const shipmentDetails = await getShipmentDetails({ shipmentId: orderId });
         console.info(
           '🙂 -> file: index.js:45 -> promises -> shipmentDetails:',
           JSON.stringify(shipmentDetails)
         );
 
+        Housebill = _.get(shipmentDetails, 'housebill')
+        console.info('🙂 -> file: index.js:77 -> promises -> Housebill:', Housebill);
+
         const type = _.get(shipmentDetails, 'Type');
         console.info('🙂 -> file: index.js:48 -> promises -> type:', type);
-        if (!type || !shipmentDetails) {
+        if (!type || !shipmentDetails || !Housebill) {
           console.info('Shipment is not created through our system. SKIPPING.');
           return 'Shipment is not created through our system. SKIPPING.';
+        }
+
+        if (isNaN(Number(Housebill))) {
+          console.info('Invalid housebill. SKIPPING.');
+          return 'Invalid housebill. SKIPPING.';
         }
 
         if (oldBrokerageStatus !== 'DISPATCH' && newBrokerageStatus === 'DISPATCH') {
@@ -121,47 +126,6 @@ module.exports.handler = async (event, context) => {
           console.info(finalPayload);
           await updateMilestone(finalPayload);
         }
-
-        // if (oldStatus !== 'D' && newStatus === 'D' && ![types.MULTISTOP].includes(type)) {
-        //   const movementId = Id;
-
-        //   if (!movementId) {
-        //     return {
-        //       statusCode: 400,
-        //       body: JSON.stringify('Movement ID is required'),
-        //     };
-        //   }
-
-        //   const podStatus = await checkForPod(orderId);
-
-        //   let resultMessage;
-
-        //   if (podStatus === 'Y') {
-        //     resultMessage = 'POD is Available';
-        //     StatusCode = milestones.DEL;
-        //   } else {
-        //     resultMessage = 'POD is Unavailable';
-        //     StatusCode = milestones.DWP;
-        //   }
-
-        //   console.info('WT status code :', StatusCode);
-        //   console.info('resultMessage :', resultMessage);
-
-        //   const finalPayload = {
-        //     OrderId: orderId,
-        //     StatusCode,
-        //     Housebill: Housebill.toString(),
-        //     EventDateTime: moment.tz('America/Chicago').format(),
-        //     Payload: '',
-        //     Response: '',
-        //     ErrorMessage: '',
-        //     Status: 'READY',
-        //     Type: type,
-        //   };
-
-        //   console.info(finalPayload);
-        //   await updateMilestone(finalPayload);
-        // }
         return true;
       } catch (error) {
         await updateMilestone({
@@ -176,9 +140,8 @@ module.exports.handler = async (event, context) => {
           id: Housebill,
           status: StatusCode,
           functionName,
-          message: `Error processing Housebill: ${Housebill}.
-          \n${_.get(error, 'message')}.\n
-          Please check the error message in DynamoDb Table ${ADD_MILESTONE_TABLE_NAME} for complete error`,
+          message: `Error processing Housebill: ${Housebill}.\n${_.get(error, 'message')}.\nPlease check the error message in DynamoDb Table ${ADD_MILESTONE_TABLE_NAME} for complete error.\nSet the 	
+Status to READY to reprocess it.`,
         });
         return await deleteMassageFromQueue({ queueUrl: MOVEMENT_STREAM_QUEUE_URL, receiptHandle });
       }

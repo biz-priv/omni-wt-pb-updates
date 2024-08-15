@@ -108,8 +108,7 @@ async function publishSNSTopic({ id, status, message, functionName }) {
     const params = {
       TopicArn: ERROR_SNS_TOPIC_ARN,
       Subject: subject,
-      Message: ` Function name: ${functionName}\n 
-      ${message}`,
+      Message: ` Function name: ${functionName}\n${message}`,
     };
     console.info('🙂 -> file: apis.js:118 -> publishSNSTopic -> params:', params);
     await sns.publish(params).promise();

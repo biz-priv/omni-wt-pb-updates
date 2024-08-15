@@ -82,7 +82,7 @@ module.exports.handler = async (event, context) => {
               id: housebill,
               status: statusCode,
               functionName,
-              message: `Error Details: Error while uploading POD. Failed records: ${JSON.stringify(failedRecords)}`,
+              message: `Error Details: Error while uploading POD.\nFailed records: ${JSON.stringify(failedRecords)}`,
             });
           }
           return await updateDynamoRow({ housebill, statusCode, data: dynamoUpdateData });
@@ -104,7 +104,7 @@ module.exports.handler = async (event, context) => {
               id: housebill,
               status: statusCode,
               functionName,
-              message: `Error Details: Error while uploading POD. Failed records: ${JSON.stringify(failedRecords)}`,
+              message: `Error Details: Error while uploading POD.\nFailed records: ${JSON.stringify(failedRecords)}`,
             });
           }
           return await updateDynamoRow({ housebill, statusCode, data: dynamoUpdateData });

@@ -212,7 +212,7 @@ async function getOrderStatus(id) {
     ExpressionAttributeValues: {
       ':ShipmentId': id,
     },
-    ProjectionExpression: '#type, FK_OrderNo',
+    ProjectionExpression: '#type, FK_OrderNo, Housebill',
   };
   console.info(
     '🙂 -> file: dynamo.js:160 -> getOrderStatus -> orderStatusParams:',
@@ -225,7 +225,7 @@ async function getOrderStatus(id) {
     if (items.length > 0) {
       return items[0];
     }
-    console.info('No Record found in Order Status Dynamo Table for MovementId:', id);
+    console.info('No Record found in Order Status Dynamo Table for ShipmentId:', id);
     return false;
   } catch (error) {
     console.error('Error in getOrderStatus function:', error);
@@ -258,7 +258,7 @@ async function getConsolStatus(id) {
     if (items.length > 0) {
       return items[0];
     }
-    console.info('No Record found in Consol Status Dynamo Table for MovementId:', id);
+    console.info('No Record found in Consol Status Dynamo Table for ShipmentId:', id);
     return false;
   } catch (error) {
     console.error('Error in getMovementOrder function:', error);
@@ -348,12 +348,17 @@ async function getQueryExpression(keys) {
 
 async function getShipmentDetails({ shipmentId }) {
   const orderStatusRes = await getOrderStatus(shipmentId);
-  if (orderStatusRes) {
-    return orderStatusRes;
+  if (orderStatusRes && _.get(orderStatusRes, types.NON_CONSOL === 'Type')) {
+    return { ...orderStatusRes, housebill: _.get(orderStatusRes, 'Housebill') };
   }
+
+  if (orderStatusRes && _.get(orderStatusRes, types.CONSOL === 'Type')) {
+    return { ...orderStatusRes, housebill: _.get(orderStatusRes, 'FK_OrderNo') };
+  }
+
   const consolStatusRes = await getConsolStatus(shipmentId);
   if (consolStatusRes) {
-    return { ...consolStatusRes, Type: types.MULTISTOP };
+    return { ...consolStatusRes, Type: types.MULTISTOP, housebill: _.get(consolStatusRes, 'ConsolNo') };
   }
   return {};
 }
