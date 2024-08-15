@@ -11,6 +11,7 @@
 const { default: axios } = require('axios');
 const _ = require('lodash');
 const AWS = require('aws-sdk');
+const { convert } = require('xmlbuilder2');
 
 const {
   GET_ORDERS_API_ENDPOINT,
@@ -251,6 +252,57 @@ async function markAsDelivered(housebill, EventDateTime) {
   }
 }
 
+async function uploadPOD({ housebill, base64 }) {
+  try {
+    const data = makeJsonToXml({ base64, housebill });
+
+    const config = {
+      method: 'post',
+      maxBodyLength: Infinity,
+      url: ADD_MILESTONE_URL,
+      headers: {
+        'Content-Type': 'application/soap+xml; charset=utf-8',
+      },
+      data,
+    };
+    console.info('🙂 -> file: apis.js:253 -> markAsDelivered -> config:', config);
+    const res = await axios.request(config);
+    if (_.get(res, 'status', '') === 200) {
+      return _.get(res, 'data', '');
+    }
+
+    throw new Error(`API Request Failed: ${JSON.stringify(res)}`);
+  } catch (error) {
+    console.error('��� -> file: apis.js:283 -> markAsDelivered -> error:', error);
+    throw error;
+  }
+}
+
+function makeJsonToXml({ housebill, base64 }) {
+  return convert({
+    'soap12:Envelope': {
+      '@xmlns:xsi': 'http://www.w3.org/2001/XMLSchema-instance',
+      '@xmlns:xsd': 'http://www.w3.org/2001/XMLSchema',
+      '@xmlns:soap12': 'http://www.w3.org/2003/05/soap-envelope',
+      'soap12:Header': {
+        AuthHeader: {
+          '@xmlns': 'http://tempuri.org/',
+          'UserName': 'biztest',
+          'Password': 'Api081020!',
+        },
+      },
+      'soap12:Body': {
+        UploadPODDocument: {
+          '@xmlns': 'http://tempuri.org/',
+          'HAWB': housebill,
+          'DocumentDataBase64': base64,
+          'DocumentExtension': 'pdf',
+        },
+      },
+    },
+  });
+}
+
 module.exports = {
   getOrders,
   checkForPod,
@@ -259,4 +311,5 @@ module.exports = {
   getPOD,
   uploadPODDoc,
   markAsDelivered,
+  uploadPOD,
 };
