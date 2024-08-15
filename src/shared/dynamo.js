@@ -221,6 +221,7 @@ async function getOrderStatus(id) {
 
   try {
     const items = await query(orderStatusParams);
+    console.info('🙂 -> file: dynamo.js:224 -> getOrderStatus -> items:', items);
 
     if (items.length > 0) {
       return items[0];
@@ -254,6 +255,7 @@ async function getConsolStatus(id) {
 
   try {
     const items = await query(consolStatusParams);
+    console.info('🙂 -> file: dynamo.js:258 -> getConsolStatus -> items:', items);
 
     if (items.length > 0) {
       return items[0];
@@ -348,11 +350,11 @@ async function getQueryExpression(keys) {
 
 async function getShipmentDetails({ shipmentId }) {
   const orderStatusRes = await getOrderStatus(shipmentId);
-  if (orderStatusRes && _.get(orderStatusRes, types.NON_CONSOL === 'Type')) {
+  if (orderStatusRes && _.get(orderStatusRes, 'Type') === types.NON_CONSOL) {
     return { ...orderStatusRes, housebill: _.get(orderStatusRes, 'Housebill') };
   }
 
-  if (orderStatusRes && _.get(orderStatusRes, types.CONSOL === 'Type')) {
+  if (orderStatusRes && _.get(orderStatusRes, 'Type') === types.CONSOL) {
     return { ...orderStatusRes, housebill: _.get(orderStatusRes, 'FK_OrderNo') };
   }
 
