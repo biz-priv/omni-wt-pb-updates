@@ -55,7 +55,7 @@ function getDynamoUpdateParam(data) {
   }
 
   Object.keys(data).forEach((key) => {
-    ExpressionAttributeValues[`:${key}`] = data[key];
+    ExpressionAttributeValues[`:${key}`] = _.get(data, key, '');
     ExpressionAttributeNames[`#${key}`] = key;
     UpdateExpression.push(`#${key} = :${key}`);
   });

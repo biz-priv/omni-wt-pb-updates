@@ -11,7 +11,6 @@
 const AWS = require('aws-sdk');
 const _ = require('lodash');
 const {
-  getOrder,
   updateMilestone,
   getMovement,
   getStop,
@@ -91,14 +90,20 @@ exports.handler = async (event, context) => {
         JSON.stringify(shipmentDetails)
       );
 
+      Housebill = _.get(shipmentDetails, 'housebill')
+      console.info('🙂 -> file: index.js:77 -> promises -> Housebill:', Housebill);
+
       const type = _.get(shipmentDetails, 'Type');
       console.info('🙂 -> file: index.js:48 -> promises -> type:', type);
-      if (!type || !shipmentDetails) {
+      if (!type || !shipmentDetails || !Housebill) {
         console.info('Shipment is not created through our system. SKIPPING.');
         return 'Shipment is not created through our system. SKIPPING.';
       }
 
-      Housebill = await getOrder(orderId);
+      if (isNaN(Number(Housebill))) {
+        console.info('Invalid housebill. SKIPPING.');
+        return 'Invalid housebill. SKIPPING.';
+      }
 
       const totalSequenceSteps = await getStop(orderId);
       const maxSequenceId = _.size(totalSequenceSteps);
@@ -279,9 +284,8 @@ exports.handler = async (event, context) => {
         id: orderId,
         status: StatusCode,
         functionName,
-        message: `Error processing StopId: ${stopId}.\n
-        ${_.get(error, 'message')}.\n
-        Please check the error message in DynamoDb Table ${ADD_MILESTONE_TABLE_NAME} for complete error`,
+        message: `Error processing StopId: ${stopId}.\n${_.get(error, 'message')}.\nPlease check the error message in DynamoDb Table ${ADD_MILESTONE_TABLE_NAME} for complete error.\nSet the 	
+Status to READY to reprocess it.`,
       });
 
       await deleteMassageFromQueue({ queueUrl: STOP_STREAM_QUEUE_URL, receiptHandle });
