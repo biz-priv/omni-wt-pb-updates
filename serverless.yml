@@ -18,7 +18,7 @@ provider:
     subnetIds:
       - ${ssm:/omni-dw/${self:provider.stage}/lambda/subnetA}
   environment:
-    ERROR_SNS_TOPIC_ARN: ${ssm:/omni-power-broker/${self:provider.stage}/error-notification/sns/arn}
+    ERROR_SNS_TOPIC_ARN: ${ssm:/omni-pb-rt/${self:provider.stage}/error-notification/arn}
   iamRoleStatements:
     - Effect: 'Allow'
       Action:

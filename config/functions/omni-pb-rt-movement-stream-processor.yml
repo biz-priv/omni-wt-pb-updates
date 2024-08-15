@@ -22,7 +22,6 @@ function:
 
   environment:
     ENVIRONMENT: ${self:provider.stage}
-    ERROR_SNS_TOPIC_ARN: ${ssm:/omni-power-broker/${self:provider.stage}/error-notification/sns/arn}
     ORDERS_TABLE_NAME: ${ssm:/omni-pb-rt/${self:provider.stage}/orders/db}
     MOVEMENT_TABLE_NAME: ${ssm:/omni-pb-rt/${self:provider.stage}/movement/db}
     ADD_MILESTONE_TABLE_NAME: ${ssm:/omni-pb-wt/${self:provider.stage}/milestones-update/db}
