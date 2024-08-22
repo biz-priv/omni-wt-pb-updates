@@ -225,6 +225,15 @@ function getActualTimestamp(timestamp) {
   );
 }
 
+class CustomAxiosError extends Error {
+  constructor(message, response, payload) {
+    super(message);
+    this.name = 'AxiosError';
+    this.response = response;
+    this.payload = payload;
+  }
+}
+
 module.exports = {
   types,
   milestones,
@@ -236,4 +245,5 @@ module.exports = {
   addMilestoneApiDataForNonConsol,
   deleteMassageFromQueue,
   getActualTimestamp,
+  CustomAxiosError,
 };

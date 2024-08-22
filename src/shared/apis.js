@@ -12,6 +12,8 @@ const { default: axios } = require('axios');
 const _ = require('lodash');
 const AWS = require('aws-sdk');
 const { convert } = require('xmlbuilder2');
+const moment = require('moment-timezone');
+const { CustomAxiosError } = require('./helper');
 
 const {
   GET_ORDERS_API_ENDPOINT,
@@ -22,6 +24,7 @@ const {
   ADD_MILESTONE_URL,
   ADD_DOCUMENT_URL,
   ADD_DOCUMENT_API_KEY,
+  LOCATION_UPDATE_TABLE,
 } = process.env;
 
 const sns = new AWS.SNS();
@@ -105,10 +108,12 @@ async function checkForPod(orderId) {
 async function publishSNSTopic({ id, status, message, functionName }) {
   const subject = `PB ADD MILESTONE ERROR NOTIFICATION - ${ENVIRONMENT} ~ id: ${id}, status: ${status}`;
   try {
+    const logStreamName = await getCurrentLogGroupName({ functionName });
+    const logUrl = getLogUrl({ functionName, logStreamName });
     const params = {
       TopicArn: ERROR_SNS_TOPIC_ARN,
       Subject: subject,
-      Message: ` Function name: ${functionName}\n${message}`,
+      Message: ` Function name: ${functionName}\n${message}\nLog URL: ${logUrl}\nCheck the log for more detailed error.`,
     };
     console.info('🙂 -> file: apis.js:118 -> publishSNSTopic -> params:', params);
     await sns.publish(params).promise();
@@ -302,6 +307,120 @@ function makeJsonToXml({ housebill, base64 }) {
   });
 }
 
+async function getCurrentLogGroupName({ functionName }) {
+  const timestamp = moment().format('YYYY/MM/DD');
+
+  const cloudwatchLogs = new AWS.CloudWatchLogs();
+  const logStreamName = await cloudwatchLogs
+    .describeLogStreams({
+      logGroupName: `/aws/lambda/${functionName}`,
+      logStreamNamePrefix: `${timestamp}/[$LATEST]`,
+    })
+    .promise();
+  console.info(
+    '🙂 -> file: index.js:37 -> promises -> logStreamName:',
+    JSON.stringify(logStreamName)
+  );
+  const latestLogStream = _.get(logStreamName, 'logStreams.[0].logStreamName');
+  console.info(
+    '🙂 -> file: apis.js:332 -> getCurrentLogGroupName -> latestLogStream:',
+    latestLogStream
+  );
+  return latestLogStream;
+}
+
+function getLogUrl({ functionName, logStreamName }) {
+  const baseUrl = 'https://console.aws.amazon.com/cloudwatch/home';
+  const region = `?region=${process.env.REGION}`;
+  const logGroupName = `#logsV2:log-groups/log-group/%2Faws%2Flambda%2F${functionName}`;
+  const logStream = `/log-events/${encodeURIComponent(logStreamName)}`;
+  const encodedUrl = `${baseUrl}${region}${logGroupName}${logStream}`;
+  return encodedUrl;
+}
+
+async function publishSNSTopicForLocationUpdate({
+  housebill,
+  callinId,
+  message,
+  functionName,
+  orderId,
+}) {
+  const subject = `PB WT LOCATION UPDATE ERROR NOTIFICATION - ${ENVIRONMENT} ~ Housebill: ${housebill}`;
+  try {
+    const logStreamName = await getCurrentLogGroupName({ functionName });
+    const logUrl = getLogUrl({ functionName, logStreamName });
+    const params = {
+      TopicArn: ERROR_SNS_TOPIC_ARN,
+      Subject: subject,
+      Message: `Function name: ${functionName}\nError Message: ${message}.\nHousebill: ${housebill}\nCallin Id: ${callinId}\nOrder Id: ${orderId}\nTable Name: ${LOCATION_UPDATE_TABLE}\nCheck the table; set the Status to READY to retrigger.\nLog URL: ${logUrl}\nCheck the log for more detailed error.`,
+    };
+    console.info('🙂 -> file: apis.js:118 -> publishSNSTopic -> params:', params);
+    await sns.publish(params).promise();
+  } catch (error) {
+    console.error('Error publishing to SNS topic:', error);
+    throw error;
+  }
+}
+
+function getAddTrackingNoteXml({ housebill, note }) {
+  return convert({
+    'soap12:Envelope': {
+      '@xmlns:xsi': 'http://www.w3.org/2001/XMLSchema-instance',
+      '@xmlns:xsd': 'http://www.w3.org/2001/XMLSchema',
+      '@xmlns:soap12': 'http://www.w3.org/2003/05/soap-envelope',
+      'soap12:Header': {
+        AuthHeader: {
+          '@xmlns': 'http://tempuri.org/',
+          'UserName': 'apiuser',
+          'Password': 'Api081020!',
+        },
+      },
+      'soap12:Body': {
+        WriteTrackingNote: {
+          '@xmlns': 'http://tempuri.org/',
+          'HandlingStation': '',
+          'HouseBill': housebill,
+          'TrackingNotes': {
+            TrackingNotes: {
+              TrackingNoteMessage: note,
+            },
+          },
+        },
+      },
+    },
+  });
+}
+
+async function addTrackingNote({ city, state, housebill }) {
+  const data = getAddTrackingNoteXml({ housebill, note: `Freight Location: ${city}, ${state}` });
+  try {
+    const config = {
+      method: 'post',
+      maxBodyLength: Infinity,
+      url: 'https://wttest.omnilogistics.com/WTKServices/AirtrakShipment.asmx',
+      headers: {
+        'Content-Type': 'application/soap+xml; charset=utf-8',
+      },
+      data,
+    };
+    console.info('🙂 -> file: apis.js:253 -> markAsDelivered -> config:', config);
+    const res = await axios.request(config);
+    if (_.get(res, 'status', '') === 200) {
+      return { response: _.get(res, 'data', ''), payload: data };
+    }
+
+    throw new Error(`API Request Failed: ${JSON.stringify(res)}`);
+  } catch (error) {
+    console.error('��� -> file: apis.js:283 -> markAsDelivered -> error:', error);
+    const responseData = _.get(error, 'response.data', _.get(error, 'message'));
+    throw new CustomAxiosError(
+      `API Request Failed: ${JSON.stringify(responseData)}`,
+      responseData,
+      data
+    );
+  }
+}
+
 module.exports = {
   getOrders,
   checkForPod,
@@ -311,4 +430,6 @@ module.exports = {
   uploadPODDoc,
   markAsDelivered,
   uploadPOD,
+  publishSNSTopicForLocationUpdate,
+  addTrackingNote,
 };
