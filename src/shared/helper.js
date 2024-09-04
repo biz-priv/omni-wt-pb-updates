@@ -13,9 +13,19 @@ const { js2xml } = require('xml-js');
 const axios = require('axios');
 const AWS = require('aws-sdk');
 const moment = require('moment-timezone');
+const sql = require('mssql');
 
 const sqs = new AWS.SQS();
-const { WT_SOAP_USERNAME, ADD_MILESTONE_URL_2, ADD_MILESTONE_URL } = process.env;
+const {
+  WT_SOAP_USERNAME,
+  ADD_MILESTONE_URL_2,
+  ADD_MILESTONE_URL,
+  DB_USERNAME,
+  DB_PASSWORD,
+  DB_SERVER,
+  DB_PORT,
+  DB_DATABASE,
+} = process.env;
 
 const types = {
   CONSOL: 'CONSOLE',
@@ -234,6 +244,57 @@ class CustomAxiosError extends Error {
   }
 }
 
+const config = {
+  user: DB_USERNAME,
+  password: DB_PASSWORD,
+  server: DB_SERVER,
+  database: DB_DATABASE,
+  port: Number(DB_PORT),
+  options: {
+    encrypt: true, // for Azure SQL or encryption
+    trustServerCertificate: true, // for self-signed certificates
+  },
+  pool: {
+    max: 10, // Max number of connections in the pool
+    min: 0, // Minimum number of connections in the pool
+    idleTimeoutMillis: 30000, // Close idle connections after 30 seconds
+  },
+};
+
+// Create a pool
+const poolPromise = new sql.ConnectionPool(config)
+  .connect()
+  .then((pool) => {
+    console.info('Connected to MSSQL');
+    return pool;
+  })
+  .catch((err) => {
+    console.error('Database Connection Failed!', err);
+    throw err;
+  });
+
+async function executePreparedStatement({ housebill, city, state }) {
+  try {
+    // Define configuration for MSSQL connection
+    const pool = await poolPromise;
+    const ps = new sql.PreparedStatement(pool);
+    ps.input('housebill', sql.VarChar);
+    ps.input('freight_city', sql.VarChar);
+    ps.input('freight_state', sql.VarChar);
+
+    await ps.prepare(
+      'UPDATE tbl_ShipmentHeader set FreightCity = @freight_city, FreightState = @freight_state WHERE Housebill = @housebill'
+    );
+    const result = await ps.execute({ housebill, freight_city: city, freight_state: state });
+
+    await ps.unprepare();
+    return result;
+  } catch (err) {
+    console.error('Prepared Statement error', err);
+    throw err;
+  }
+}
+
 module.exports = {
   types,
   milestones,
@@ -246,4 +307,5 @@ module.exports = {
   deleteMassageFromQueue,
   getActualTimestamp,
   CustomAxiosError,
+  executePreparedStatement,
 };

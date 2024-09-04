@@ -12,8 +12,7 @@ const { default: axios } = require('axios');
 const _ = require('lodash');
 const AWS = require('aws-sdk');
 const { convert } = require('xmlbuilder2');
-const moment = require('moment-timezone');
-const { CustomAxiosError } = require('./helper');
+const { CustomAxiosError, executePreparedStatement } = require('./helper');
 
 const {
   GET_ORDERS_API_ENDPOINT,
@@ -25,6 +24,7 @@ const {
   ADD_DOCUMENT_URL,
   ADD_DOCUMENT_API_KEY,
   LOCATION_UPDATE_TABLE,
+  WT_SOAP_USERNAME,
 } = process.env;
 
 const sns = new AWS.SNS();
@@ -232,7 +232,7 @@ async function uploadPODDoc({ housebill, base64 }) {
 
 async function markAsDelivered(housebill, EventDateTime) {
   try {
-    const data = `<?xml version="1.0" encoding="utf-8"?>\n<soap12:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap12="http://www.w3.org/2003/05/soap-envelope">\n    <soap12:Body>\n        <SubmitPOD xmlns="http://tempuri.org/">\n            <HAWB>${housebill}</HAWB>\n            <UserName>apiuser</UserName>\n            <UserInitials>apiuser</UserInitials>\n            <Signer>see_pod</Signer>\n            <PODDateTime>${EventDateTime}</PODDateTime>\n            <LatLon>0,0</LatLon>\n        </SubmitPOD>\n    </soap12:Body>\n</soap12:Envelope>`;
+    const data = `<?xml version="1.0" encoding="utf-8"?>\n<soap12:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap12="http://www.w3.org/2003/05/soap-envelope">\n    <soap12:Body>\n        <SubmitPOD xmlns="http://tempuri.org/">\n            <HAWB>${housebill}</HAWB>\n            <UserName>${WT_SOAP_USERNAME}</UserName>\n            <UserInitials>${WT_SOAP_USERNAME}</UserInitials>\n            <Signer>see_pod</Signer>\n            <PODDateTime>${EventDateTime}</PODDateTime>\n            <LatLon>0,0</LatLon>\n        </SubmitPOD>\n    </soap12:Body>\n</soap12:Envelope>`;
 
     const config = {
       method: 'post',
@@ -308,13 +308,13 @@ function makeJsonToXml({ housebill, base64 }) {
 }
 
 async function getCurrentLogGroupName({ functionName }) {
-  const timestamp = moment().format('YYYY/MM/DD');
-
   const cloudwatchLogs = new AWS.CloudWatchLogs();
   const logStreamName = await cloudwatchLogs
     .describeLogStreams({
       logGroupName: `/aws/lambda/${functionName}`,
-      logStreamNamePrefix: `${timestamp}/[$LATEST]`,
+      orderBy: 'LastEventTime',
+      descending: true,
+      limit: 1,
     })
     .promise();
   console.info(
@@ -352,7 +352,7 @@ async function publishSNSTopicForLocationUpdate({
     const params = {
       TopicArn: ERROR_SNS_TOPIC_ARN,
       Subject: subject,
-      Message: `Function name: ${functionName}\nError Message: ${message}.\nHousebill: ${housebill}\nCallin Id: ${callinId}\nOrder Id: ${orderId}\nTable Name: ${LOCATION_UPDATE_TABLE}\nCheck the table; set the Status to READY to retrigger.\nLog URL: ${logUrl}\nCheck the log for more detailed error.`,
+      Message: `Function name: ${functionName}\nError Message: ${message}.\nHousebill: ${housebill}\nCallin Id: ${callinId}\nOrder Id: ${orderId}\nTable Name: ${LOCATION_UPDATE_TABLE}\nCheck the table; set the Status to READY to retrigger.\nLatest Log URL: ${logUrl}\nCheck the log for more detailed error.\nPlease check the next log of the mentioned log url.`,
     };
     console.info('🙂 -> file: apis.js:118 -> publishSNSTopic -> params:', params);
     await sns.publish(params).promise();
@@ -371,7 +371,7 @@ function getAddTrackingNoteXml({ housebill, note }) {
       'soap12:Header': {
         AuthHeader: {
           '@xmlns': 'http://tempuri.org/',
-          'UserName': 'apiuser',
+          'UserName': WT_SOAP_USERNAME,
           'Password': 'Api081020!',
         },
       },
@@ -392,6 +392,11 @@ function getAddTrackingNoteXml({ housebill, note }) {
 }
 
 async function addTrackingNote({ city, state, housebill }) {
+  const shipmentHeaderUpdate = await executePreparedStatement({ city, housebill, state });
+  console.info(
+    '🙂 -> file: apis.js:396 -> addTrackingNote -> shipmentHeaderUpdate:',
+    shipmentHeaderUpdate
+  );
   const data = getAddTrackingNoteXml({ housebill, note: `Freight Location: ${city}, ${state}` });
   try {
     const config = {
