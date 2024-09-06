@@ -10,11 +10,7 @@
 
 const AWS = require('aws-sdk');
 const _ = require('lodash');
-const {
-  getMovementOrder,
-  updateMilestone,
-  getShipmentDetails,
-} = require('../shared/dynamo');
+const { getMovementOrder, updateMilestone, getShipmentDetails } = require('../shared/dynamo');
 const moment = require('moment-timezone');
 const { publishSNSTopic } = require('../shared/apis');
 const { milestones, deleteMassageFromQueue, status } = require('../shared/helper');
@@ -70,7 +66,7 @@ module.exports.handler = async (event, context) => {
           JSON.stringify(shipmentDetails)
         );
 
-        Housebill = _.get(shipmentDetails, 'housebill')
+        Housebill = _.get(shipmentDetails, 'housebill');
         console.info('🙂 -> file: index.js:77 -> promises -> Housebill:', Housebill);
 
         const type = _.get(shipmentDetails, 'Type');

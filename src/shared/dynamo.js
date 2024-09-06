@@ -34,6 +34,8 @@ const {
   STOP_INDEX_NAME,
   CONSOL_STOP_HEADERS_CONSOL_INDEX,
   STATUS_INDEX,
+  CALLIN_TABLE,
+  LOCATION_UPDATE_TABLE,
 } = process.env;
 
 async function query(params) {
@@ -360,7 +362,11 @@ async function getShipmentDetails({ shipmentId }) {
 
   const consolStatusRes = await getConsolStatus(shipmentId);
   if (consolStatusRes) {
-    return { ...consolStatusRes, Type: types.MULTISTOP, housebill: _.get(consolStatusRes, 'ConsolNo') };
+    return {
+      ...consolStatusRes,
+      Type: types.MULTISTOP,
+      housebill: _.get(consolStatusRes, 'ConsolNo'),
+    };
   }
   return {};
 }
@@ -559,6 +565,115 @@ async function updateStatusTable(
   }
 }
 
+async function insertOrUpdateLocationUpdateTable({ housebill, callinId, data }) {
+  try {
+    const { ExpressionAttributeNames, ExpressionAttributeValues, UpdateExpression } =
+      getDynamoUpdateParam(data);
+    const params = {
+      TableName: process.env.LOCATION_UPDATE_TABLE,
+      Key: {
+        Housebill: housebill,
+        CallinId: callinId,
+      },
+      UpdateExpression,
+      ExpressionAttributeNames,
+      ExpressionAttributeValues,
+    };
+    console.info(
+      '🙂 -> file: dynamo.js:576 -> insertOrUpdateLocationUpdateTable -> params:',
+      params
+    );
+    return await dynamoDB.update(params).promise();
+  } catch (error) {
+    console.error('🙂 -> file: index.js:579 -> insertOrUpdateLocationUpdateTable -> error:', error);
+    throw error;
+  }
+}
+
+async function getCallinDetails({ callinId }) {
+  const orderParams = {
+    TableName: CALLIN_TABLE,
+    KeyConditionExpression: '#id = :id',
+    ExpressionAttributeNames: {
+      '#id': 'id',
+      '#order_id': 'order_id',
+      '#city_name': 'city_name',
+      '#state': 'state',
+      '#current_stop_id': 'current_stop_id',
+    },
+    ExpressionAttributeValues: {
+      ':id': callinId,
+    },
+    ProjectionExpression: '#id, #order_id, #city_name, #state, #current_stop_id',
+  };
+  console.info('🙂 -> file: dynamo.js:82 -> getOrder -> orderParams:', orderParams);
+
+  try {
+    const items = await query(orderParams);
+    console.info('🙂 -> file: dynamo.js:606 -> getCallinDetails -> items:', items);
+    return _.get(items, '[0]', {});
+  } catch (error) {
+    console.error('Error in getOrder function:', error);
+    throw error;
+  }
+}
+
+async function getLocationUpdateDetails({ housebill, callinId }) {
+  const orderParams = {
+    TableName: LOCATION_UPDATE_TABLE,
+    KeyConditionExpression: 'Housebill = :Housebill and CallinId = :CallinId',
+    ExpressionAttributeNames: { '#Status': 'Status' },
+    ExpressionAttributeValues: {
+      ':Housebill': housebill,
+      ':CallinId': callinId,
+    },
+    ProjectionExpression: '#Status',
+  };
+  console.info('🙂 -> file: dynamo.js:82 -> getOrder -> orderParams:', orderParams);
+
+  try {
+    const items = await query(orderParams);
+    console.info('🙂 -> file: dynamo.js:606 -> getCallinDetails -> items:', items);
+    return _.get(items, '[0]', {});
+  } catch (error) {
+    console.error('Error in getOrder function:', error);
+    throw error;
+  }
+}
+
+async function deleteDynamoRecord({ tableName, pKeyName, pKey, sKeyName, sKey }) {
+  const param = {
+    TableName: tableName,
+    Key: {
+      [pKeyName]: pKey,
+      [sKeyName]: sKey,
+    },
+  };
+  return await dynamoDB.delete(param).promise();
+}
+
+async function getStopDetails({ id }) {
+  const stopParam = {
+    TableName: STOP_TABLE_NAME,
+    KeyConditionExpression: '#id = :id',
+    ExpressionAttributeNames: { '#id': 'id' },
+    ExpressionAttributeValues: {
+      ':id': id,
+    },
+    ProjectionExpression: 'movement_sequence',
+  };
+  console.info('🙂 -> file: dynamo.js:659 -> getStopDetails -> stopParam:', stopParam);
+
+  try {
+    const items = await query(stopParam);
+    console.info('🙂 -> file: dynamo.js:663 -> getStopDetails -> items:', items);
+    return _.get(items, '[0]', {});
+  } catch (error) {
+    console.error('Error in getOrder function:', error);
+    throw error;
+  }
+}
+
 module.exports = {
   getMovementOrder,
   getOrder,
@@ -579,4 +694,9 @@ module.exports = {
   updateDynamoRow,
   getTotalStop,
   updateStatusTable,
+  insertOrUpdateLocationUpdateTable,
+  getCallinDetails,
+  getLocationUpdateDetails,
+  deleteDynamoRecord,
+  getStopDetails,
 };
