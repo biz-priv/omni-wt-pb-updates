@@ -7,7 +7,6 @@ provider:
   versionFunctions: false
   tags: ${self:custom.tags}
   stackTags: ${self:custom.tags}
-  # role: ${ssm:/omni-dw/${self:provider.stage}/lambda/role}
   runtime: nodejs20.x
   deploymentBucket:
     name: ${ssm:/omni-dw/${self:provider.stage}/sls/deployment/bucket}
@@ -19,6 +18,7 @@ provider:
       - ${ssm:/omni-dw/${self:provider.stage}/lambda/subnetA}
   environment:
     ERROR_SNS_TOPIC_ARN: ${ssm:/omni-pb-rt/${self:provider.stage}/error-notification/arn}
+    REGION: ${opt:region, 'us-east-1'}
   iamRoleStatements:
     - Effect: 'Allow'
       Action:
@@ -46,6 +46,7 @@ provider:
         - dynamodb:Query
         - dynamodb:DeleteItem
         - dynamodb:Scan
+        - logs:DescribeLogStreams
       Resource: '*'
 
 custom:
@@ -77,3 +78,4 @@ functions:
   omni-pb-rt-stop-db-stream-processor: ${file(config/functions/omni-pb-rt-stop-db-stream-processor.yml):function}
   omni-pb-add-milestone: ${file(config/functions/omni-pb-add-milestone.yml):function}
   omni-pb-pod-upload: ${file(config/functions/omni-pb-pod-upload.yml):function}
+  omni-pb-location-update: ${file(config/functions/omni-pb-location-update.yml):function}

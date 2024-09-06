@@ -1,0 +1,52 @@
+---
+function:
+  handler: src/location-update/index.handler
+  name: pb-wt-214-location-update-${self:provider.stage}
+  description: OMNI PB Real Time Location Update Lambda - ${self:provider.stage}
+  layers:
+    - { Ref: NodeModulesLambdaLayer }
+  timeout: 300
+  tags:
+    Name: pb-wt-214-location-update-${self:provider.stage}
+  package:
+    patterns:
+      - '!**/*'
+      - 'src/location-update/index.js'
+      - 'src/shared/*'
+
+  events:
+    - sqs:
+        arn: ${ssm:/omni-pb-wt/${self:provider.stage}/callin-table-stream-queue-arn}
+        batchSize: 1
+    - stream:
+        type: dynamodb
+        arn: ${ssm:/omni-pb-wt/${self:provider.stage}/location-update/ddb.streamArn}
+        batchSize: 1
+        enabled: true
+        filterPatterns:
+          - { dynamodb: { NewImage: { Status: { S: ['READY'] } } } }
+        maximumRetryAttempts: 1
+
+  environment:
+    ENVIRONMENT: ${self:provider.stage}
+    ORDERS_TABLE_NAME: ${ssm:/omni-pb-rt/${self:provider.stage}/orders/db}
+    ORDER_STATUS_TABLE_NAME: ${ssm:/omni-204-create-shipment/${self:provider.stage}/status/ddb.name}
+    CONSOL_STATUS_TABLE_NAME: ${ssm:/omni-live-204/${self:provider.stage}/consol-status/ddb.tableName}
+    WT_SOAP_USERNAME: ${ssm:/omni-dw/${self:provider.stage}/wt/soap/username}
+    SHIPMENT_APAR_TABLE: ${ssm:/omni-wt-rt-updates/${self:provider.stage}/shipment-apar/ddb.tableName}
+    SHIPMENT_APAR_INDEX_KEY_NAME: ${ssm:/omni-wt-rt-updates/${self:provider.stage}/shipment-apar/ddb.ConsolNoIndex}
+    CONSOL_STOP_HEADERS: ${ssm:/omni-wt-rt-updates/${self:provider.stage}/consol-stop-headers/ddb.tableName}
+    CONSOL_STOP_HEADERS_CONSOL_INDEX: ${ssm:/omni-pb-wt/${self:provider.stage}/consol-stop-header-consol-index}
+    CONSOL_STOP_ITEMS: ${ssm:/omni-wt-rt-updates/${self:provider.stage}/consol-stop-items/ddb.tableName}
+    SHIPMENT_HEADER_TABLE: ${ssm:/omni-wt-rt-updates/${self:provider.stage}/shipment-header/ddb.tableName}
+    LOCATION_UPDATE_TABLE: ${ssm:/omni-pb-wt/${self:provider.stage}/location-update/db.name}
+    CALLIN_STABLE_QUEUE_URL: ${ssm:/omni-pb-wt/${self:provider.stage}/callin-table-stream-queue-url}
+    CALLIN_TABLE: ${ssm:/omni-pb-rt/${self:provider.stage}/callin/ddb.name}
+    STOP_TABLE_NAME: ${ssm:/omni-pb-rt/${self:provider.stage}/stop/db}
+    DB_USERNAME: ${ssm:/omni-dw/${self:provider.stage}/worldTrak/source-db/userName}
+    DB_PASSWORD: ${ssm:/omni-dw/${self:provider.stage}/worldTrak/source-db/password}
+    DB_SERVER: ${ssm:/omni-dw/${self:provider.stage}/worldTrak/source-db/serverName}
+    DB_PORT: ${ssm:/omni-dw/${self:provider.stage}/worldTrak/source-db/port}
+    DB_DATABASE: ${ssm:/omni-dw/${self:provider.stage}/worldTrak/source-db/name}
+    WT_SOAP_PASSWORD: ${ssm:/omni-dw/${self:provider.stage}/wt/soap/password}
+    TRACKING_NOTES_API_URL: ${ssm:/omni-ivia/${self:provider.stage}/createShipment/xmlUpdate/url}
