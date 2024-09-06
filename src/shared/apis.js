@@ -25,6 +25,8 @@ const {
   ADD_DOCUMENT_API_KEY,
   LOCATION_UPDATE_TABLE,
   WT_SOAP_USERNAME,
+  WT_SOAP_PASSWORD,
+  TRACKING_NOTES_API_URL
 } = process.env;
 
 const sns = new AWS.SNS();
@@ -372,7 +374,7 @@ function getAddTrackingNoteXml({ housebill, note }) {
         AuthHeader: {
           '@xmlns': 'http://tempuri.org/',
           'UserName': WT_SOAP_USERNAME,
-          'Password': 'Api081020!',
+          'Password': WT_SOAP_PASSWORD,
         },
       },
       'soap12:Body': {
@@ -402,7 +404,7 @@ async function addTrackingNote({ city, state, housebill }) {
     const config = {
       method: 'post',
       maxBodyLength: Infinity,
-      url: 'https://wttest.omnilogistics.com/WTKServices/AirtrakShipment.asmx',
+      url: TRACKING_NOTES_API_URL,
       headers: {
         'Content-Type': 'application/soap+xml; charset=utf-8',
       },

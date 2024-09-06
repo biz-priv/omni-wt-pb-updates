@@ -48,3 +48,5 @@ function:
     DB_SERVER: ${ssm:/omni-dw/${self:provider.stage}/worldTrak/source-db/serverName}
     DB_PORT: ${ssm:/omni-dw/${self:provider.stage}/worldTrak/source-db/port}
     DB_DATABASE: ${ssm:/omni-dw/${self:provider.stage}/worldTrak/source-db/name}
+    WT_SOAP_PASSWORD: ${ssm:/omni-dw/${self:provider.stage}/wt/soap/password}
+    TRACKING_NOTES_API_URL: ${ssm:/omni-ivia/${self:provider.stage}/createShipment/xmlUpdate/url}
