@@ -184,7 +184,7 @@ module.exports.handler = async (event, context) => {
         }
       }
 
-      if (type === types.MULTISTOP) {
+      if (type === types.MULTISTOP && stopId) {
         consolNo = housebill;
 
         //* Get total stop for the consolidation.

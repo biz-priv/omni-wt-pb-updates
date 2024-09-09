@@ -244,38 +244,39 @@ class CustomAxiosError extends Error {
   }
 }
 
-const config = {
-  user: DB_USERNAME,
-  password: DB_PASSWORD,
-  server: DB_SERVER,
-  database: DB_DATABASE,
-  port: Number(DB_PORT),
-  options: {
-    encrypt: true, // for Azure SQL or encryption
-    trustServerCertificate: true, // for self-signed certificates
-  },
-  pool: {
-    max: 10, // Max number of connections in the pool
-    min: 0, // Minimum number of connections in the pool
-    idleTimeoutMillis: 30000, // Close idle connections after 30 seconds
-  },
-};
 
-// Create a pool
-const poolPromise = new sql.ConnectionPool(config)
-  .connect()
-  .then((pool) => {
-    console.info('Connected to MSSQL');
-    return pool;
-  })
-  .catch((err) => {
-    console.error('Database Connection Failed!', err);
-    throw err;
-  });
 
 async function executePreparedStatement({ housebill, city, state }) {
   try {
     // Define configuration for MSSQL connection
+    const config = {
+      user: DB_USERNAME,
+      password: DB_PASSWORD,
+      server: DB_SERVER,
+      database: DB_DATABASE,
+      port: Number(DB_PORT),
+      options: {
+        encrypt: true, // for Azure SQL or encryption
+        trustServerCertificate: true, // for self-signed certificates
+      },
+      pool: {
+        max: 10, // Max number of connections in the pool
+        min: 0, // Minimum number of connections in the pool
+        idleTimeoutMillis: 30000, // Close idle connections after 30 seconds
+      },
+    };
+
+    // Create a pool
+    const poolPromise = new sql.ConnectionPool(config)
+      .connect()
+      .then((pool) => {
+        console.info('Connected to MSSQL');
+        return pool;
+      })
+      .catch((err) => {
+        console.error('Database Connection Failed!', err);
+        throw err;
+      });
     const pool = await poolPromise;
     const ps = new sql.PreparedStatement(pool);
     ps.input('housebill', sql.VarChar);

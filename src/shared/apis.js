@@ -394,11 +394,7 @@ function getAddTrackingNoteXml({ housebill, note }) {
 }
 
 async function addTrackingNote({ city, state, housebill }) {
-  const shipmentHeaderUpdate = await executePreparedStatement({ city, housebill, state });
-  console.info(
-    '🙂 -> file: apis.js:396 -> addTrackingNote -> shipmentHeaderUpdate:',
-    shipmentHeaderUpdate
-  );
+
   const data = getAddTrackingNoteXml({ housebill, note: `Freight Location: ${city}, ${state}` });
   try {
     const config = {
@@ -412,6 +408,13 @@ async function addTrackingNote({ city, state, housebill }) {
     };
     console.info('🙂 -> file: apis.js:253 -> markAsDelivered -> config:', config);
     const res = await axios.request(config);
+
+    const shipmentHeaderUpdate = await executePreparedStatement({ city, housebill, state });
+    console.info(
+      '🙂 -> file: apis.js:396 -> addTrackingNote -> shipmentHeaderUpdate:',
+      shipmentHeaderUpdate
+    );
+
     if (_.get(res, 'status', '') === 200) {
       return { response: _.get(res, 'data', ''), payload: data };
     }
