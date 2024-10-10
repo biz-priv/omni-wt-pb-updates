@@ -79,3 +79,4 @@ functions:
   omni-pb-add-milestone: ${file(config/functions/omni-pb-add-milestone.yml):function}
   omni-pb-pod-upload: ${file(config/functions/omni-pb-pod-upload.yml):function}
   omni-pb-location-update: ${file(config/functions/omni-pb-location-update.yml):function}
+  omni-pb-finalise-cost: ${file(config/functions/omni-pb-wt-finalise-cost.yml):function}
