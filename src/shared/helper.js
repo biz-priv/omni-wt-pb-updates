@@ -15,7 +15,9 @@ const AWS = require('aws-sdk');
 const moment = require('moment-timezone');
 const sql = require('mssql');
 
+const ses = new AWS.SES();
 const sqs = new AWS.SQS();
+
 const {
   WT_SOAP_USERNAME,
   ADD_MILESTONE_URL_2,
@@ -25,6 +27,9 @@ const {
   DB_SERVER,
   DB_PORT,
   DB_DATABASE,
+  OMNI_NO_REPLY_EMAIL,
+  WT_SOAP_PASSWORD,
+  LIVELOGI_VENDOR_REMITNO,
 } = process.env;
 
 const types = {
@@ -244,8 +249,6 @@ class CustomAxiosError extends Error {
   }
 }
 
-
-
 async function executePreparedStatement({ housebill, city, state }) {
   try {
     // Define configuration for MSSQL connection
@@ -296,6 +299,129 @@ async function executePreparedStatement({ housebill, city, state }) {
   }
 }
 
+const EMAIL_RECIPIENTS = ['msazeed@omnilogistics.com', 'juddin@omnilogistics.com'];
+
+/**
+ * Send email using AWS SES
+ * @param {Object} params - Parameters for sending email
+ */
+async function sendSESEmail({ message, subject }) {
+  try {
+    const params = {
+      Destination: {
+        ToAddresses: EMAIL_RECIPIENTS,
+      },
+      Message: {
+        Body: {
+          Html: {
+            Data: message,
+            Charset: 'UTF-8',
+          },
+        },
+        Subject: {
+          Data: subject,
+          Charset: 'UTF-8',
+        },
+      },
+      Source: OMNI_NO_REPLY_EMAIL,
+    };
+
+    await ses.sendEmail(params).promise();
+  } catch (error) {
+    console.error('Error sending email with SES:', error);
+    throw error;
+  }
+}
+
+/**
+ * Generates the payload for the SOAP request.
+ * @param {Object} params - Parameters for the SOAP request
+ * @returns {string} - The generated SOAP request
+ */
+function generateFinaliseCostPayload({ referenceNo, totalCharges, invoiceNumber, invoiceDate }) {
+  if (
+    _.isEmpty(referenceNo) ||
+    _.isEmpty(totalCharges) ||
+    _.isEmpty(invoiceNumber) ||
+    _.isEmpty(invoiceDate)
+  ) {
+    throw new Error('All parameters are required and must not be empty');
+  }
+
+  return `<?xml version="1.0" encoding="utf-8"?>
+  <soap12:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap12="http://www.w3.org/2003/05/soap-envelope">
+    <soap12:Header>
+      <AuthHeader xmlns="http://tempuri.org/">
+        <UserName>${WT_SOAP_USERNAME}</UserName>
+        <Password>${WT_SOAP_PASSWORD}</Password>
+      </AuthHeader>
+    </soap12:Header>
+    <soap12:Body>
+      <FinalizeCosts xmlns="http://tempuri.org/">
+        <RemitVendorNo>${LIVELOGI_VENDOR_REMITNO}</RemitVendorNo>
+        <ReferenceNo>${referenceNo}</ReferenceNo>
+        <TotalCharges>${totalCharges}</TotalCharges>
+        <InvoiceNumber>${invoiceNumber}</InvoiceNumber>
+        <InvoiceDate>${invoiceDate}</InvoiceDate>
+      </FinalizeCosts>
+    </soap12:Body>
+  </soap12:Envelope>`;
+}
+
+/**
+ * Generate HTML email content
+ * @param {Object} params - Parameters for email content
+ * @returns {string} - HTML email content
+ */
+function generateEmailContent({
+  shipmentId,
+  orderNo,
+  consolNo,
+  housebill,
+  errorDetails = '',
+  type,
+}) {
+  return `<!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        body { font-family: Arial, sans-serif; background-color: #f4f4f4; margin: 0; padding: 0; }
+        .container { padding: 20px; margin: 20px auto; border: 1px solid #ddd; border-radius: 8px; background-color: #fff; max-width: 600px; }
+        .highlight { font-weight: bold; }
+        .footer { font-size: 0.85em; color: #888; margin-top: 20px; }
+        .contact-support { margin-top: 15px; color: #444; font-size: 1em; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <p>Dear Team,</p>
+        <p>We were unable to finalize the cost associated with the shipment. Below are the details:</p>
+        <p>
+          <span class="highlight">#PRO:</span> <strong>${shipmentId}</strong><br>
+          ${type !== types.MULTISTOP ? `<span class="highlight">FileNo:</span> <strong>${orderNo}</strong><br>` : ''}
+          <span class="highlight">Consolidation Number:</span> <strong>${consolNo}</strong><br>
+          <span class="highlight">Housebill:</span> <strong>${housebill}</strong>
+          ${errorDetails ? `<br><span class="highlight">Error Details:</span> ${errorDetails}` : ''}
+        </p>
+        <p>Thank you,<br>Omni Automation System</p>
+        <p class="footer">Note: This is a system generated email. Please do not reply to this email.</p>
+      </div>
+    </body>
+    </html>`;
+}
+
+/**
+ * Parse the incoming record
+ * @param {Object} record - The record to parse
+ * @returns {Object|null} - The parsed record or null if invalid
+ */
+function parseRecord(record) {
+  const body = _.get(record, 'body', '');
+  const { Message } = JSON.parse(body);
+  const parsedMessage = JSON.parse(Message);
+  return AWS.DynamoDB.Converter.unmarshall(_.get(parsedMessage, 'dynamodb.NewImage', {}));
+}
+
 module.exports = {
   types,
   milestones,
@@ -309,4 +435,8 @@ module.exports = {
   getActualTimestamp,
   CustomAxiosError,
   executePreparedStatement,
+  sendSESEmail,
+  generateFinaliseCostPayload,
+  generateEmailContent,
+  parseRecord,
 };

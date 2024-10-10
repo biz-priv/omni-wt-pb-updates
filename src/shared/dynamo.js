@@ -36,6 +36,7 @@ const {
   STATUS_INDEX,
   CALLIN_TABLE,
   LOCATION_UPDATE_TABLE,
+  FINALISE_COST_STATUS_TABLE,
 } = process.env;
 
 async function query(params) {
@@ -674,6 +675,52 @@ async function getStopDetails({ id }) {
   }
 }
 
+/**
+ * Stores the finalize cost status in DynamoDB.
+ * @param {Object} params - Parameters for storing in DynamoDB
+ */
+async function storeFinalizeCostStatus({
+  shipmentInfo,
+  shipmentId,
+  finaliseCostRequest,
+  response,
+  Status,
+  errorMessage = null,
+  type,
+}) {
+  const { orderNo, consolNo, housebill } = shipmentInfo;
+  // Construct the base item
+  const item = {
+    ShipmentId: shipmentId,
+    Housebill: housebill,
+    ConsolNo: consolNo,
+    Payload: finaliseCostRequest,
+    Response: response,
+    Status,
+    ErrorMsg: errorMessage,
+    UpdatedAt: moment.tz('America/Chicago').format('YYYY-MM-DD'),
+    Type: type,
+  };
+
+  // Add ConsolNo only if type is not MULTISTOP
+  if (type !== types.MULTISTOP) {
+    item.OrderNo = orderNo;
+  }
+
+  const params = {
+    TableName: FINALISE_COST_STATUS_TABLE,
+    Item: item,
+  };
+
+  try {
+    await dynamoDB.put(params).promise();
+    console.info(`Successfully stored finalize cost status for shipment ${shipmentId}`);
+  } catch (error) {
+    console.error('Error storing finalize cost status in DynamoDB:', error);
+    throw new Error('Failed to store finalize cost status object.');
+  }
+}
+
 module.exports = {
   getMovementOrder,
   getOrder,
@@ -699,4 +746,5 @@ module.exports = {
   getLocationUpdateDetails,
   deleteDynamoRecord,
   getStopDetails,
+  storeFinalizeCostStatus,
 };
