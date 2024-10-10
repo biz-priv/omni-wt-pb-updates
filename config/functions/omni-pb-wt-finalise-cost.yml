@@ -1,6 +1,6 @@
 ---
 function:
-  handler: src/add-milestone/index.handler
+  handler: src/finalise-cost/index.handler
   name: pb-wt-finalise-cost-${self:provider.stage}
   description: OMNI PB WT Finalise Cost Process - ${self:provider.stage}
   layers:
