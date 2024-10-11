@@ -31,3 +31,4 @@ function:
     FINALISE_COST_ENDPOINT: ${ssm:/omni-pb-wt-updates/${self:provider.stage}/finalise-cost/api.endpoint}
     LIVELOGI_VENDOR_REMITNO: ${ssm:/omni-pb-wt-updates/${self:provider.stage}/livelogi/remitVendorNo}
     FINALISE_COST_STATUS_TABLE: ${ssm:/omni-pb-wt-updates/${self:provider.stage}/finalise-cost/dynamoDb.tableName}
+    OMNI_NO_REPLY_EMAIL: ${ssm:/omni-204-create-shipment/${self:provider.stage}/omni-no-reply/email}
