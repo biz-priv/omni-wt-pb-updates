@@ -692,13 +692,13 @@ async function storeFinalizeCostStatus({
   // Construct the base item
   const item = {
     ShipmentId: shipmentId,
-    Housebill: housebill,
+    Housebill: housebill.toString(),
     ConsolNo: consolNo,
     Payload: finaliseCostRequest,
     Response: response,
     Status,
     ErrorMsg: errorMessage,
-    UpdatedAt: moment.tz('America/Chicago').format('YYYY-MM-DD'),
+    UpdatedAt: moment.tz('America/Chicago').format(),
     Type: type,
   };
 

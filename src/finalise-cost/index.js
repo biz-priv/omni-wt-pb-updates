@@ -71,6 +71,9 @@ async function processRecord(record) {
     }
 
     const { housebill, orderNo, consolNo } = extractShipmentInfo(shipmentDetails);
+    console.info('🚀 ~ file: index.js:74 ~ processRecord ~ consolNo:', consolNo)
+    console.info('🚀 ~ file: index.js:74 ~ processRecord ~ orderNo:', orderNo)
+    console.info('🚀 ~ file: index.js:74 ~ processRecord ~ housebill:', housebill)
 
     if (!isReadyToBill(parsedRecord)) {
       console.info('Record not ready to bill.');
@@ -173,6 +176,7 @@ async function processFinalizedCost(shipmentId, totalCharges, type, shipmentInfo
 
   const response = await makeSOAPRequest(finaliseCostRequest);
   const errorMessage = parseSOAPResponse(response);
+  console.info('🚀 ~ file: index.js:176 ~ processFinalizedCost ~ errorMessage:', errorMessage)
 
   if (errorMessage) {
     if (errorMessage.includes('Reference # for Vendor Not Found')) {
