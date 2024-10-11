@@ -186,17 +186,17 @@ async function processFinalizedCost(shipmentId, totalCharges, type, shipmentInfo
         'Reference # for Vendor Not Found',
         type
       );
+      await storeFinalizeCostStatus({
+        shipmentInfo,
+        shipmentId,
+        finaliseCostRequest,
+        response,
+        Status: status.FAILED,
+        errorMessage,
+        type,
+      });
+      throw new Error(`Error in finalise cost process: ${errorMessage}`);
     }
-    await storeFinalizeCostStatus({
-      shipmentInfo,
-      shipmentId,
-      finaliseCostRequest,
-      response,
-      Status: status.FAILED,
-      errorMessage,
-      type,
-    });
-    throw new Error(`Error in finalise cost process: ${errorMessage}`);
   }
 
   await storeFinalizeCostStatus({
@@ -205,7 +205,7 @@ async function processFinalizedCost(shipmentId, totalCharges, type, shipmentInfo
     finaliseCostRequest,
     response,
     Status: status.SENT,
-    errorMessage: null,
+    errorMessage,
     type,
   });
 

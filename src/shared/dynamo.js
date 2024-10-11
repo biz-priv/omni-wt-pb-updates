@@ -249,7 +249,7 @@ async function getConsolStatus(id) {
     ExpressionAttributeValues: {
       ':ShipmentId': id,
     },
-    ProjectionExpression: '#ConsolNo, #Type',
+    ProjectionExpression: '#ConsolNo, #Type, Housebill',
   };
   console.info(
     '🙂 -> file: dynamo.js:185 -> getConsolStatus -> consolStatusParams:',
