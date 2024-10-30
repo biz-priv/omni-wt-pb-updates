@@ -466,6 +466,32 @@ async function makeSOAPRequest(soapRequest) {
   }
 }
 
+async function updateAsComplete(query) {
+  try {
+    const config = {
+      method: 'post',
+      maxBodyLength: Infinity,
+      url: process.env.UPDATE_SOURCE_DB_API_URL,
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': process.env.UPDATE_SOURCE_DB_API_KEY,
+      },
+      data: { query },
+    };
+    console.info('🚀 -> file: dataHelper.js:38 -> querySourceDb -> config:', config);
+
+    const res = await axios.request(config);
+    console.info('🚀 -> file: dataHelper.js:41 -> querySourceDb -> res:', res);
+    if (_.get(res, 'status', '') === 200) {
+      return _.get(res, 'data', '');
+    }
+    throw new Error(`Update shipment as complete in source db API Request Failed: ${res}`);
+  } catch (error) {
+    console.error('Update shipment as complete in source db API Request Failed: ', error);
+    throw error
+  }
+}
+
 module.exports = {
   getOrders,
   checkForPod,
@@ -478,4 +504,5 @@ module.exports = {
   publishSNSTopicForLocationUpdate,
   addTrackingNote,
   makeSOAPRequest,
+  updateAsComplete,
 };

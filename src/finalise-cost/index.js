@@ -9,7 +9,7 @@
 'use strict';
 
 const _ = require('lodash');
-const { makeSOAPRequest } = require('../shared/apis');
+const { makeSOAPRequest, updateAsComplete } = require('../shared/apis');
 const {
   deleteMassageFromQueue,
   status,
@@ -71,9 +71,9 @@ async function processRecord(record) {
     }
 
     const { housebill, orderNo, consolNo } = extractShipmentInfo(shipmentDetails);
-    console.info('🚀 ~ file: index.js:74 ~ processRecord ~ consolNo:', consolNo)
-    console.info('🚀 ~ file: index.js:74 ~ processRecord ~ orderNo:', orderNo)
-    console.info('🚀 ~ file: index.js:74 ~ processRecord ~ housebill:', housebill)
+    console.info('🚀 ~ file: index.js:74 ~ processRecord ~ consolNo:', consolNo);
+    console.info('🚀 ~ file: index.js:74 ~ processRecord ~ orderNo:', orderNo);
+    console.info('🚀 ~ file: index.js:74 ~ processRecord ~ housebill:', housebill);
 
     if (!isReadyToBill(parsedRecord)) {
       console.info('Record not ready to bill.');
@@ -176,21 +176,29 @@ async function processFinalizedCost(shipmentId, totalCharges, type, shipmentInfo
 
   const response = await makeSOAPRequest(finaliseCostRequest);
   const errorMessage = parseSOAPResponse(response);
-  console.info('🚀 ~ file: index.js:176 ~ processFinalizedCost ~ errorMessage:', errorMessage)
+  console.info('🚀 ~ file: index.js:176 ~ processFinalizedCost ~ errorMessage:', errorMessage);
 
-  if (errorMessage) {
-    if (errorMessage.includes('Reference # for Vendor Not Found')) {
-      await storeFinalizeCostStatus({
-        shipmentInfo,
-        shipmentId,
-        finaliseCostRequest,
-        response,
-        Status: status.FAILED,
-        errorMessage,
-        type,
-      });
-      throw new Error(`${errorMessage}`);
-    }
+  if (
+    _.get(errorMessage, 'status', false) === false &&
+    _.get(errorMessage, 'message', false).includes('Reference # for Vendor Not Found')
+  ) {
+    await storeFinalizeCostStatus({
+      shipmentInfo,
+      shipmentId,
+      finaliseCostRequest,
+      response,
+      Status: status.FAILED,
+      errorMessage,
+      type,
+    });
+    throw new Error(`${errorMessage}`);
+  } else if (
+    _.get(errorMessage, 'status', false) === false &&
+    !_.get(errorMessage, 'message', false).includes('Pending Approval')
+  ) {
+    console.info('shipment should be marked as complete');
+    const query = `update dbo.tbl_shipmentapar set Complete = 'Y' where fk_orderno='${_.get(shipmentInfo, 'orderNo')} and APARCode = 'V'`;
+    await updateAsComplete(query);
   }
 
   await storeFinalizeCostStatus({
@@ -232,7 +240,10 @@ function parseSOAPResponse(xmlResponse) {
     );
 
     const success = _.get(finalizeCostsResult, 'Success._text', 'false') === 'true';
-    return success ? null : _.get(finalizeCostsResult, 'ErrorMessage._text', 'Unknown error');
+    return {
+      status: success,
+      message: _.get(finalizeCostsResult, 'ErrorMessage._text', 'Unknown error'),
+    };
   } catch (error) {
     console.error('Error parsing SOAP response:', error);
     throw error;
