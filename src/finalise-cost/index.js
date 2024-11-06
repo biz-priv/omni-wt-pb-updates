@@ -197,7 +197,13 @@ async function processFinalizedCost(shipmentId, totalCharges, type, shipmentInfo
     !_.get(errorMessage, 'message', false).includes('Pending Approval')
   ) {
     console.info('shipment should be marked as complete');
-    const query = `update dbo.tbl_shipmentapar set Complete = 'Y' where fk_orderno='${_.get(shipmentInfo, 'orderNo')}' and APARCode = 'V'`;
+    let fkOrderNo;
+    if(type === types.MULTISTOP){
+      fkOrderNo = _.get(shipmentInfo, 'consolNo')
+    } else{
+      fkOrderNo = _.get(shipmentInfo, 'orderNo')
+    }
+    const query = `update dbo.tbl_shipmentapar set Complete = 'Y' where fk_orderno='${fkOrderNo}' and APARCode = 'V'`;
     await updateAsComplete(query);
   }
 
