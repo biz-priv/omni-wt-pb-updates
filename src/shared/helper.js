@@ -299,14 +299,29 @@ async function executePreparedStatement({ housebill, city, state }) {
   }
 }
 
-const EMAIL_RECIPIENTS = ['msazeed@omnilogistics.com', 'juddin@omnilogistics.com'];
-
 /**
  * Send email using AWS SES
  * @param {Object} params - Parameters for sending email
  */
-async function sendSESEmail({ message, subject }) {
+async function sendSESEmail({ message, subject, userEmail = '' }) {
   try {
+    const EMAIL_RECIPIENTS = [
+      'msazeed@omnilogistics.com',
+      'juddin@omnilogistics.com',
+      'kvallabhaneni@omnilogistics.com',
+    ];
+
+    // Check if subject matches and append the additional email
+    if (
+      subject.startsWith('Finalize Cost Failed for Shipment') ||
+      subject.includes('Shipment with #PRO Number')
+    ) {
+      EMAIL_RECIPIENTS.push('brokerageops4@omnilogistics.com');
+    }
+    // check if this exists
+    if (userEmail) {
+      EMAIL_RECIPIENTS.push(userEmail);
+    }
     const params = {
       Destination: {
         ToAddresses: EMAIL_RECIPIENTS,
@@ -327,6 +342,7 @@ async function sendSESEmail({ message, subject }) {
     };
 
     await ses.sendEmail(params).promise();
+    console.info('Email sent successfully to:', EMAIL_RECIPIENTS.join(', '));
   } catch (error) {
     console.error('Error sending email with SES:', error);
     throw error;
@@ -403,6 +419,7 @@ function generateEmailContent({
           <span class="highlight">Housebill:</span> <strong>${housebill}</strong>
           ${errorDetails ? `<br><span class="highlight">Error Details:</span> ${errorDetails}` : ''}
         </p>
+        <p>Please contact the operations to finalise the cost for this shipment.</p>
         <p>Thank you,<br>Omni Automation System</p>
         <p class="footer">Note: This is a system generated email. Please do not reply to this email.</p>
       </div>

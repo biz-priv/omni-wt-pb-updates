@@ -19,7 +19,12 @@ const {
   generateEmailContent,
   parseRecord,
 } = require('../shared/helper');
-const { getShipmentDetails, storeFinalizeCostStatus } = require('../shared/dynamo');
+const {
+  getShipmentDetails,
+  storeFinalizeCostStatus,
+  isAlreadyProcessed,
+  queryUsersTable,
+} = require('../shared/dynamo');
 const xmljs = require('xml-js');
 const moment = require('moment-timezone');
 
@@ -30,7 +35,7 @@ const { FINALISE_COST_QUEUE_URL, STAGE } = process.env;
  * @param {Object} event - The AWS Lambda event object
  * @returns {Promise<boolean>} - Returns true if processing was successful
  */
-exports.handler = async (event) => {
+module.exports.handler = async (event) => {
   console.info('Event received:', JSON.stringify(event, null, 2));
 
   try {
@@ -74,6 +79,38 @@ async function processRecord(record) {
     console.info('🚀 ~ file: index.js:74 ~ processRecord ~ consolNo:', consolNo);
     console.info('🚀 ~ file: index.js:74 ~ processRecord ~ orderNo:', orderNo);
     console.info('🚀 ~ file: index.js:74 ~ processRecord ~ housebill:', housebill);
+
+    // Check if the record is already processed
+    const processedRecords = await isAlreadyProcessed(shipmentId);
+    console.info('🚀 ~ file: index.js:84 ~ processRecord ~ processedRecords:', processedRecords);
+
+    // If the record has a Status of SENT, send an error email and return
+    const sentRecord = processedRecords.find((rec) => rec.Status === status.SENT);
+    if (sentRecord) {
+      console.info(`Record with shipmentId ${shipmentId} is already SENT. Skipping processing.`);
+      // query users table with newImages attrubute billing_user_id and query for id = billing_user_id. Projection should be email
+
+      const userId = _.get(parsedRecord, 'billing_user_id', 'NA');
+      const billingUser = await queryUsersTable({ userId });
+      console.info('🚀 ~ file: index.js:93 ~ processRecord ~ billingUser:', billingUser);
+      const userEmail = _.get(billingUser, '[0].email_address', '');
+      console.info('🚀 ~ file: index.js:95 ~ processRecord ~ userEmail:', userEmail);
+
+      const emailContent = generateEmailContent({
+        shipmentId,
+        orderNo,
+        consolNo,
+        housebill,
+        errorDetails: 'This shipment has already been finalized.',
+        type,
+      });
+      await sendSESEmail({
+        message: emailContent,
+        subject: `Finalize Cost Failed for Shipment ${shipmentId} - ${_.toUpper(STAGE)}`,
+        userEmail,
+      });
+      return false;
+    }
 
     if (!isReadyToBill(parsedRecord)) {
       console.info('Record not ready to bill.');
@@ -180,7 +217,11 @@ async function processFinalizedCost(shipmentId, totalCharges, type, shipmentInfo
 
   if (
     _.get(errorMessage, 'status', false) === false &&
-    _.get(errorMessage, 'message', false).includes('Reference # for Vendor Not Found')
+    (_.get(errorMessage, 'message', false).includes('Reference # for Vendor Not Found') ||
+      _.get(errorMessage, 'message', false).includes(
+        'The Vendor/Reference # combination Combination Must be Unique'
+      ) ||
+      _.get(errorMessage, 'message', false).endsWith('is already Finalized'))
   ) {
     await storeFinalizeCostStatus({
       shipmentInfo,
@@ -192,16 +233,35 @@ async function processFinalizedCost(shipmentId, totalCharges, type, shipmentInfo
       type,
     });
     throw new Error(`${errorMessage}`);
+  } else if (_.get(errorMessage, 'message', false).includes('Pending Approval')) {
+    console.info('Error message indicates Pending Approval. Sending email.');
+
+    // Generate email content
+    const emailContent = generateEmailContent({
+      shipmentId,
+      orderNo: _.get(shipmentInfo, 'orderNo', ''),
+      consolNo: _.get(shipmentInfo, 'consolNo', ''),
+      housebill: _.get(shipmentInfo, 'housebill', ''),
+      errorDetails: 'This shipment is in pending approval status.',
+      type,
+    });
+
+    await sendSESEmail({
+      message: emailContent,
+      subject: `Shipment with #PRO Number ${shipmentId} is Pending Approval`,
+    });
+
+    console.info('Pending Approval email sent.');
   } else if (
     _.get(errorMessage, 'status', false) === true &&
     !_.get(errorMessage, 'message', false).includes('Pending Approval')
   ) {
     console.info('shipment should be marked as complete');
     let fkOrderNo;
-    if(type === types.MULTISTOP){
-      fkOrderNo = _.get(shipmentInfo, 'consolNo')
-    } else{
-      fkOrderNo = _.get(shipmentInfo, 'orderNo')
+    if (type === types.MULTISTOP) {
+      fkOrderNo = _.get(shipmentInfo, 'consolNo');
+    } else {
+      fkOrderNo = _.get(shipmentInfo, 'orderNo');
     }
     const query = `update dbo.tbl_shipmentapar set Complete = 'Y' where fk_orderno='${fkOrderNo}' and APARCode = 'V'`;
     await updateAsComplete(query);

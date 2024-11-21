@@ -11,7 +11,7 @@
 const AWS = require('aws-sdk');
 const moment = require('moment-timezone');
 
-const dynamoDB = new AWS.DynamoDB.DocumentClient();
+const dynamoDB = new AWS.DynamoDB.DocumentClient({ region: 'us-east-1' });
 const _ = require('lodash');
 const { types, status, milestones, getDynamoUpdateParam } = require('./helper');
 
@@ -37,6 +37,7 @@ const {
   CALLIN_TABLE,
   LOCATION_UPDATE_TABLE,
   FINALISE_COST_STATUS_TABLE,
+  PB_USERS_TABLE,
 } = process.env;
 
 async function query(params) {
@@ -721,6 +722,47 @@ async function storeFinalizeCostStatus({
   }
 }
 
+/**
+ * Check if a shipment has been processed multiple times
+ * @param {string} shipmentId - The shipment ID
+ * @returns {Promise<boolean>} - Returns result Items array
+ */
+async function isAlreadyProcessed(shipmentId) {
+  try {
+    const params = {
+      TableName: FINALISE_COST_STATUS_TABLE,
+      KeyConditionExpression: 'ShipmentId = :shipmentId',
+      ExpressionAttributeValues: {
+        ':shipmentId': shipmentId,
+      },
+    };
+
+    const result = await dynamoDB.query(params).promise();
+    return _.get(result, 'Items', []);
+  } catch (error) {
+    console.error('Error checking finalise cost status table:', error);
+    throw error;
+  }
+}
+
+async function queryUsersTable({ userId }) {
+  try {
+    const params = {
+      TableName: PB_USERS_TABLE,
+      KeyConditionExpression: 'id = :userid',
+      ExpressionAttributeValues: {
+        ':userid': userId,
+      },
+      ProjectionExpression: 'email_address',
+    };
+
+    const result = await dynamoDB.query(params).promise();
+    return _.get(result, 'Items', []);
+  } catch (error) {
+    console.error('Error checking finalise cost status table:', error);
+    throw error;
+  }
+}
 module.exports = {
   getMovementOrder,
   getOrder,
@@ -747,4 +789,6 @@ module.exports = {
   deleteDynamoRecord,
   getStopDetails,
   storeFinalizeCostStatus,
+  isAlreadyProcessed,
+  queryUsersTable,
 };

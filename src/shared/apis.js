@@ -488,7 +488,7 @@ async function updateAsComplete(query) {
     throw new Error(`Update shipment as complete in source db API Request Failed: ${res}`);
   } catch (error) {
     console.error('Update shipment as complete in source db API Request Failed: ', error);
-    throw error
+    throw error;
   }
 }
 
