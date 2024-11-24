@@ -420,7 +420,7 @@ function generateEmailContent({
           ${errorDetails ? `<br><span class="highlight">Error Details:</span> ${errorDetails}` : ''}
         </p>
         <p>Please contact the operations to finalise the cost for this shipment.</p>
-        <p>Thank you,<br>Omni Automation System</p>
+        <p>Thank you,<br>Omni Data Engineering Team</p>
         <p class="footer">Note: This is a system generated email. Please do not reply to this email.</p>
       </div>
     </body>

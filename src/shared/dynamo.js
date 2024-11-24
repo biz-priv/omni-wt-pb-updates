@@ -733,20 +733,24 @@ async function isAlreadyProcessed(shipmentId) {
       TableName: FINALISE_COST_STATUS_TABLE,
       KeyConditionExpression: 'ShipmentId = :shipmentId',
       ExpressionAttributeValues: {
-        ':shipmentId': shipmentId,
+        ':shipmentId': String(shipmentId),
       },
     };
 
     const result = await dynamoDB.query(params).promise();
     return _.get(result, 'Items', []);
   } catch (error) {
-    console.error('Error checking finalise cost status table:', error);
+    console.error(`Error checking ${FINALISE_COST_STATUS_TABLE} table:`, error);
     throw error;
   }
 }
 
 async function queryUsersTable({ userId }) {
   try {
+    if (userId === 'NULL' || userId === 'NA') {
+      return [];
+    }
+
     const params = {
       TableName: PB_USERS_TABLE,
       KeyConditionExpression: 'id = :userid',
@@ -759,10 +763,11 @@ async function queryUsersTable({ userId }) {
     const result = await dynamoDB.query(params).promise();
     return _.get(result, 'Items', []);
   } catch (error) {
-    console.error('Error checking finalise cost status table:', error);
+    console.error(`Error checking ${PB_USERS_TABLE} table:`, error);
     throw error;
   }
 }
+
 module.exports = {
   getMovementOrder,
   getOrder,

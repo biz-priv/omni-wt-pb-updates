@@ -67,7 +67,7 @@ async function processRecord(record) {
     const parsedRecord = parseRecord(record);
     if (!parsedRecord) return false;
 
-    shipmentId = _.get(parsedRecord, 'id');
+    shipmentId = _.get(parsedRecord, 'id', '');
     shipmentDetails = await getShipmentDetails({ shipmentId });
 
     if (!isValidShipment(shipmentDetails)) {
@@ -212,28 +212,37 @@ async function processFinalizedCost(shipmentId, totalCharges, type, shipmentInfo
   });
 
   const response = await makeSOAPRequest(finaliseCostRequest);
-  const errorMessage = parseSOAPResponse(response);
-  console.info('🚀 ~ file: index.js:176 ~ processFinalizedCost ~ errorMessage:', errorMessage);
+  const errorDetails = parseSOAPResponse(response);
+  console.info('🚀 ~ file: index.js:176 ~ processFinalizedCost ~ errorMessage:', errorDetails);
+  const errorMessage = _.get(errorDetails, 'message', '');
 
-  if (
-    _.get(errorMessage, 'status', false) === false &&
-    (_.get(errorMessage, 'message', false).includes('Reference # for Vendor Not Found') ||
-      _.get(errorMessage, 'message', false).includes(
-        'The Vendor/Reference # combination Combination Must be Unique'
-      ) ||
-      _.get(errorMessage, 'message', false).endsWith('is already Finalized'))
-  ) {
+  if (_.get(errorDetails, 'status', false) === false) {
+    let customErrorMessage;
+
+    if (errorMessage.includes('Reference # for Vendor Not Found')) {
+      customErrorMessage = `The reference number ${shipmentId} for LIVELOGI could not be found.`;
+    } else if (
+      errorMessage.includes('The Vendor/Reference # combination Combination Must be Unique')
+    ) {
+      customErrorMessage =
+        'The combination of vendor and reference number must be unique. Duplicate records detected.';
+    } else if (errorMessage.endsWith('is already Finalized')) {
+      customErrorMessage = `This invoice/refNo with ${shipmentId} has already been finalized. This request could not be processed again.`;
+    } else {
+      customErrorMessage = errorMessage;
+    }
+
     await storeFinalizeCostStatus({
       shipmentInfo,
       shipmentId,
       finaliseCostRequest,
       response,
       Status: status.FAILED,
-      errorMessage,
+      errorMessage: customErrorMessage,
       type,
     });
-    throw new Error(`${errorMessage}`);
-  } else if (_.get(errorMessage, 'message', false).includes('Pending Approval')) {
+    throw new Error(`${customErrorMessage}`);
+  } else if (errorMessage.includes('Pending Approval')) {
     console.info('Error message indicates Pending Approval. Sending email.');
 
     // Generate email content
@@ -242,7 +251,7 @@ async function processFinalizedCost(shipmentId, totalCharges, type, shipmentInfo
       orderNo: _.get(shipmentInfo, 'orderNo', ''),
       consolNo: _.get(shipmentInfo, 'consolNo', ''),
       housebill: _.get(shipmentInfo, 'housebill', ''),
-      errorDetails: 'This shipment is in pending approval status.',
+      errorDetails: 'Due to discrepancies in cost, this shipment is in a pending approval state.',
       type,
     });
 
@@ -253,10 +262,10 @@ async function processFinalizedCost(shipmentId, totalCharges, type, shipmentInfo
 
     console.info('Pending Approval email sent.');
   } else if (
-    _.get(errorMessage, 'status', false) === true &&
-    !_.get(errorMessage, 'message', false).includes('Pending Approval')
+    _.get(errorDetails, 'status', false) === true &&
+    !errorMessage.includes('Pending Approval')
   ) {
-    console.info('shipment should be marked as complete');
+    console.info('Shipment should be marked as complete.');
     let fkOrderNo;
     if (type === types.MULTISTOP) {
       fkOrderNo = _.get(shipmentInfo, 'consolNo');
