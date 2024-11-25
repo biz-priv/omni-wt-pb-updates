@@ -744,7 +744,7 @@ async function isAlreadyProcessed(shipmentId) {
 async function queryUsersTable({ userId }) {
   try {
     if (userId === 'NULL' || userId === 'NA') {
-      return [];
+      return '';
     }
 
     const params = {
@@ -806,7 +806,7 @@ async function queryShipmentApar({ orderNo, consolNo }) {
 async function fetchUserEmail({ userId }) {
   try {
     if (userId === 'NULL' || userId === 'NA') {
-      return [];
+      return '';
     }
     const params = {
       TableName: WT_USERS_TABLE,

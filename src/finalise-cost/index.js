@@ -114,10 +114,14 @@ async function processRecord(record) {
         errorDetails: 'This shipment has already been finalized.',
         type,
       });
+      // Combine emails and remove invalid/empty entries
+      const userEmails = [pbUserEmail, wtOpsUserEmail]
+        .filter((email) => email) // Remove empty entries
+        .join(',');
       await sendSESEmail({
         message: emailContent,
         subject: `Finalize Cost Failed for Shipment ${shipmentId} - ${_.toUpper(STAGE)}`,
-        userEmail: `${pbUserEmail},${wtOpsUserEmail}`,
+        userEmail: userEmails,
       });
       return false;
     }
@@ -128,7 +132,6 @@ async function processRecord(record) {
     }
 
     const totalCharges = _.get(parsedRecord, 'total_charge', '0');
-
 
     const result = await processFinalizedCost(shipmentId, totalCharges, type, {
       housebill,
@@ -305,7 +308,13 @@ async function processFinalizedCost(shipmentId, totalCharges, type, shipmentInfo
  */
 async function handleProcessingError(error, shipmentId, shipmentInfo, type, userId) {
   const { housebill, orderNo, consolNo } = extractShipmentInfo(shipmentInfo);
-  await sendErrorNotification(shipmentId, { housebill, orderNo, consolNo }, error.message, type, userId);
+  await sendErrorNotification(
+    shipmentId,
+    { housebill, orderNo, consolNo },
+    error.message,
+    type,
+    userId
+  );
 }
 
 /**
@@ -387,7 +396,7 @@ async function sendErrorNotification(shipmentId, shipmentInfo, errorDetails, typ
 
   // Combine emails and remove invalid/empty entries
   const userEmails = [pbUserEmail, wtOpsUserEmail]
-    .filter(email => email) // Remove empty entries
+    .filter((email) => email) // Remove empty entries
     .join(',');
 
   // Send email
