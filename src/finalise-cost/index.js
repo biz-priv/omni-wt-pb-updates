@@ -104,7 +104,7 @@ async function processRecord(record) {
         wtOpsUserId = await queryShipmentApar({ orderNo });
       }
       console.info('🚀 ~ file: index.js:98 ~ processRecord ~ wtOpsEmail:', wtOpsUserId);
-      const wtOpsUserEmail = await fetchUserEmail({ userId: wtOpsUserId });
+      const wtOpsUserEmail = await fetchUserEmail({ userId: _.toLower(wtOpsUserId) });
       console.info('🚀 ~ file: index.js:101 ~ processRecord ~ wtOpsUserEmail:', wtOpsUserEmail);
       const emailContent = generateEmailContent({
         shipmentId,
@@ -386,7 +386,7 @@ async function sendErrorNotification(shipmentId, shipmentInfo, errorDetails, typ
       console.info('WT Ops User ID:', wtOpsUserId);
 
       if (wtOpsUserId) {
-        wtOpsUserEmail = await fetchUserEmail({ userId: wtOpsUserId });
+        wtOpsUserEmail = await fetchUserEmail({ userId: _.toLower(wtOpsUserId) });
         console.info('WT Ops User Email:', wtOpsUserEmail);
       }
     } catch (error) {
