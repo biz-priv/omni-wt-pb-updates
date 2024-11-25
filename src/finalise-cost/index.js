@@ -24,6 +24,8 @@ const {
   storeFinalizeCostStatus,
   isAlreadyProcessed,
   queryUsersTable,
+  queryShipmentApar,
+  fetchUserEmail,
 } = require('../shared/dynamo');
 const xmljs = require('xml-js');
 const moment = require('moment-timezone');
@@ -63,6 +65,7 @@ async function processRecord(record) {
   let shipmentId = null;
   let shipmentDetails = {};
   let type = '';
+  let userId = '';
   try {
     const parsedRecord = parseRecord(record);
     if (!parsedRecord) return false;
@@ -74,28 +77,35 @@ async function processRecord(record) {
       console.info('Invalid shipment. Skipping.');
       return false;
     }
-
+    userId = _.get(parsedRecord, 'billing_user_id', 'NA');
+    type = _.get(shipmentDetails, 'Type', 'NA');
+    console.info('🚀 ~ file: index.js:83 ~ processRecord ~ type:', type);
     const { housebill, orderNo, consolNo } = extractShipmentInfo(shipmentDetails);
-    console.info('🚀 ~ file: index.js:74 ~ processRecord ~ consolNo:', consolNo);
-    console.info('🚀 ~ file: index.js:74 ~ processRecord ~ orderNo:', orderNo);
-    console.info('🚀 ~ file: index.js:74 ~ processRecord ~ housebill:', housebill);
+    console.info('🚀 ~ file: index.js:79 ~ processRecord ~ consolNo:', consolNo);
+    console.info('🚀 ~ file: index.js:80 ~ processRecord ~ orderNo:', orderNo);
+    console.info('🚀 ~ file: index.js:81 ~ processRecord ~ housebill:', housebill);
 
     // Check if the record is already processed
     const processedRecords = await isAlreadyProcessed(shipmentId);
-    console.info('🚀 ~ file: index.js:84 ~ processRecord ~ processedRecords:', processedRecords);
+    console.info('🚀 ~ file: index.js:85 ~ processRecord ~ processedRecords:', processedRecords);
 
     // If the record has a Status of SENT, send an error email and return
     const sentRecord = processedRecords.find((rec) => rec.Status === status.SENT);
     if (sentRecord) {
       console.info(`Record with shipmentId ${shipmentId} is already SENT. Skipping processing.`);
-      // query users table with newImages attrubute billing_user_id and query for id = billing_user_id. Projection should be email
-
-      const userId = _.get(parsedRecord, 'billing_user_id', 'NA');
       const billingUser = await queryUsersTable({ userId });
       console.info('🚀 ~ file: index.js:93 ~ processRecord ~ billingUser:', billingUser);
-      const userEmail = _.get(billingUser, '[0].email_address', '');
-      console.info('🚀 ~ file: index.js:95 ~ processRecord ~ userEmail:', userEmail);
-
+      const pbUserEmail = _.get(billingUser, '[0].email_address', '');
+      console.info('🚀 ~ file: index.js:95 ~ processRecord ~ userEmail:', pbUserEmail);
+      let wtOpsUserId;
+      if (type === types.MULTISTOP) {
+        wtOpsUserId = await queryShipmentApar({ consolNo });
+      } else {
+        wtOpsUserId = await queryShipmentApar({ orderNo });
+      }
+      console.info('🚀 ~ file: index.js:98 ~ processRecord ~ wtOpsEmail:', wtOpsUserId);
+      const wtOpsUserEmail = await fetchUserEmail({ userId: wtOpsUserId });
+      console.info('🚀 ~ file: index.js:101 ~ processRecord ~ wtOpsUserEmail:', wtOpsUserEmail);
       const emailContent = generateEmailContent({
         shipmentId,
         orderNo,
@@ -107,7 +117,7 @@ async function processRecord(record) {
       await sendSESEmail({
         message: emailContent,
         subject: `Finalize Cost Failed for Shipment ${shipmentId} - ${_.toUpper(STAGE)}`,
-        userEmail,
+        userEmail: `${pbUserEmail},${wtOpsUserEmail}`,
       });
       return false;
     }
@@ -119,8 +129,6 @@ async function processRecord(record) {
 
     const totalCharges = _.get(parsedRecord, 'total_charge', '0');
 
-    type = _.get(shipmentDetails, 'Type', 'NA');
-    console.info('🚀 ~ file: index.js:83 ~ processRecord ~ type:', type);
 
     const result = await processFinalizedCost(shipmentId, totalCharges, type, {
       housebill,
@@ -131,7 +139,7 @@ async function processRecord(record) {
     return result;
   } catch (error) {
     console.error('Error processing record:', error);
-    await handleProcessingError(error, shipmentId, shipmentDetails, type);
+    await handleProcessingError(error, shipmentId, shipmentDetails, type, userId);
     await deleteMassageFromQueue({
       queueUrl: FINALISE_COST_QUEUE_URL,
       receiptHandle,
@@ -295,9 +303,9 @@ async function processFinalizedCost(shipmentId, totalCharges, type, shipmentInfo
  * @param {string} shipmentId - The shipment ID
  * @param {Object} shipmentInfo - Object containing shipment information
  */
-async function handleProcessingError(error, shipmentId, shipmentInfo, type) {
+async function handleProcessingError(error, shipmentId, shipmentInfo, type, userId) {
   const { housebill, orderNo, consolNo } = extractShipmentInfo(shipmentInfo);
-  await sendErrorNotification(shipmentId, { housebill, orderNo, consolNo }, error.message, type);
+  await sendErrorNotification(shipmentId, { housebill, orderNo, consolNo }, error.message, type, userId);
 }
 
 /**
@@ -330,10 +338,16 @@ function parseSOAPResponse(xmlResponse) {
  * @param {string} shipmentId - The shipment ID
  * @param {Object} shipmentInfo - Object containing shipment information
  * @param {string} errorDetails - Error details to include in the email
+ * @param {string} type - Type of the shipment (e.g., MULTISTOP)
+ * @param {string} userId - User ID for fetching billing user details
  */
-async function sendErrorNotification(shipmentId, shipmentInfo, errorDetails, type) {
+async function sendErrorNotification(shipmentId, shipmentInfo, errorDetails, type, userId) {
   const { orderNo, consolNo, housebill } = shipmentInfo;
-  const subject = `${_.toUpper(STAGE)} - Failed to Finalise Cost for #PRO Number: ${shipmentId}`;
+
+  // Format subject line
+  const subject = `${_.toUpper(STAGE)} - Failed to Finalize Cost for #PRO Number: ${shipmentId}`;
+
+  // Generate email content
   const message = generateEmailContent({
     shipmentId,
     orderNo,
@@ -343,5 +357,45 @@ async function sendErrorNotification(shipmentId, shipmentInfo, errorDetails, typ
     type,
   });
 
-  await sendSESEmail({ message, subject });
+  let pbUserEmail = '';
+  let wtOpsUserEmail = '';
+
+  // Fetch email addresses if error involves reference number
+  if (errorDetails.includes('The reference number')) {
+    try {
+      const billingUser = await queryUsersTable({ userId });
+      pbUserEmail = _.get(billingUser, '[0].email_address', '');
+      console.info('Billing User Email:', pbUserEmail);
+
+      let wtOpsUserId;
+      if (type === types.MULTISTOP) {
+        wtOpsUserId = await queryShipmentApar({ consolNo });
+      } else {
+        wtOpsUserId = await queryShipmentApar({ orderNo });
+      }
+
+      console.info('WT Ops User ID:', wtOpsUserId);
+
+      if (wtOpsUserId) {
+        wtOpsUserEmail = await fetchUserEmail({ userId: wtOpsUserId });
+        console.info('WT Ops User Email:', wtOpsUserEmail);
+      }
+    } catch (error) {
+      console.error('Error fetching user emails:', error);
+    }
+  }
+
+  // Combine emails and remove invalid/empty entries
+  const userEmails = [pbUserEmail, wtOpsUserEmail]
+    .filter(email => email) // Remove empty entries
+    .join(',');
+
+  // Send email
+  try {
+    await sendSESEmail({ message, subject, userEmail: userEmails });
+    console.info('Error notification email sent successfully.');
+  } catch (error) {
+    console.error('Error sending email notification:', error);
+    throw error;
+  }
 }

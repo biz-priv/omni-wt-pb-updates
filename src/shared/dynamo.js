@@ -38,6 +38,7 @@ const {
   LOCATION_UPDATE_TABLE,
   FINALISE_COST_STATUS_TABLE,
   PB_USERS_TABLE,
+  WT_USERS_TABLE,
 } = process.env;
 
 async function query(params) {
@@ -722,11 +723,6 @@ async function storeFinalizeCostStatus({
   }
 }
 
-/**
- * Check if a shipment has been processed multiple times
- * @param {string} shipmentId - The shipment ID
- * @returns {Promise<boolean>} - Returns result Items array
- */
 async function isAlreadyProcessed(shipmentId) {
   try {
     const params = {
@@ -768,6 +764,67 @@ async function queryUsersTable({ userId }) {
   }
 }
 
+async function queryShipmentApar({ orderNo, consolNo }) {
+  try {
+    let params;
+    const shipmentAparParams = {
+      TableName: SHIPMENT_APAR_TABLE,
+      KeyConditionExpression: 'FK_OrderNo = :orderno',
+      ExpressionAttributeValues: {
+        ':orderno': String(orderNo),
+      },
+      ProjectionExpression: 'FK_OrderNo, UpdatedBy',
+    };
+
+    const shipmentAparConsolParams = {
+      TableName: SHIPMENT_APAR_TABLE,
+      IndexName: SHIPMENT_APAR_INDEX_KEY_NAME,
+      KeyConditionExpression: 'ConsolNo = :ConsolNo',
+      FilterExpression: 'SeqNo = :seqno',
+      ExpressionAttributeValues: {
+        ':ConsolNo': String(consolNo),
+        ':seqno': '9999',
+      },
+      ProjectionExpression: 'FK_OrderNo, UpdatedBy',
+    };
+
+    if (orderNo) {
+      params = shipmentAparParams;
+    } else {
+      params = shipmentAparConsolParams;
+    }
+
+    const result = await query(params);
+    console.info('🙂 -> file: dynamo.js:313 -> getAparDataByConsole -> result:', result);
+    return _.get(result, 'Items[0].UpdatedBy', 'NA');
+  } catch (error) {
+    console.error('🙂 -> file: helper.js:546 -> error:', error);
+    throw error;
+  }
+}
+
+async function fetchUserEmail({ userId }) {
+  try {
+    if (userId === 'NULL' || userId === 'NA') {
+      return [];
+    }
+    const params = {
+      TableName: WT_USERS_TABLE,
+      KeyConditionExpression: 'PK_UserId = :PK_UserId',
+      ProjectionExpression: 'UserEmail',
+      ExpressionAttributeValues: {
+        ':PK_UserId': userId,
+      },
+    };
+    console.info('🚀 ~ file: helper.js:759 ~ fetchUserEmail ~ param:', params);
+    const response = await dynamoDB.query(params).promise();
+    return _.get(response, 'Items[0].UserEmail', '');
+  } catch (error) {
+    console.error('🙂 -> file: helper.js:831 -> error:', error);
+    throw error;
+  }
+}
+
 module.exports = {
   getMovementOrder,
   getOrder,
@@ -796,4 +853,6 @@ module.exports = {
   storeFinalizeCostStatus,
   isAlreadyProcessed,
   queryUsersTable,
+  queryShipmentApar,
+  fetchUserEmail,
 };

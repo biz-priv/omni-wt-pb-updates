@@ -35,3 +35,4 @@ function:
     UPDATE_SOURCE_DB_API_KEY: ${ssm:/omni-common-utils-infra/${self:provider.stage}/common-utils/api-key}
     UPDATE_SOURCE_DB_API_URL: ${ssm:/omni-common-utils-infra/${self:provider.stage}/update-source-db/api-url}
     PB_USERS_TABLE: ${ssm:/omni-pb-rt/${self:provider.stage}/users/db}
+    WT_USERS_TABLE: ${ssm:/omni-wt-rt-updates/${self:provider.stage}/users/ddb.tableName}

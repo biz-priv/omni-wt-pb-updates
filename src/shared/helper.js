@@ -318,10 +318,14 @@ async function sendSESEmail({ message, subject, userEmail = '' }) {
     ) {
       EMAIL_RECIPIENTS.push('brokerageops4@omnilogistics.com');
     }
-    // check if this exists
+
+    // Append emails from userEmail, if provided
     if (userEmail) {
-      EMAIL_RECIPIENTS.push(userEmail);
+      // Split the userEmail string into an array of individual emails
+      const additionalEmails = userEmail.split(',').map((email) => email.trim());
+      EMAIL_RECIPIENTS.push(...additionalEmails);
     }
+
     const params = {
       Destination: {
         ToAddresses: EMAIL_RECIPIENTS,
