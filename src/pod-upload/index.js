@@ -169,7 +169,11 @@ async function uploadPODForConsol({ base64, housebill, type, eventDateTime }) {
   const failedRecords = [];
   for (const shipment of consolidatedShipments) {
     try {
-      const conIsCu = await consigneeIsCustomer(_.get(shipment, 'FK_OrderNo'), type);
+      const conIsCu = await consigneeIsCustomer(
+        _.get(shipment, 'FK_OrderNo'),
+        type,
+        _.get(shipment, 'SeqNo')
+      );
       if (conIsCu) {
         const shipmentHeaderData = await getShipmentHeaderData({
           orderNo: _.get(shipment, 'FK_OrderNo'),
