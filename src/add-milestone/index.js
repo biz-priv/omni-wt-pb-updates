@@ -200,7 +200,11 @@ async function processForConsol({ originalStatus, orderNo, orderId, eventTime })
       let finalStatus = originalStatus;
       if (originalStatus.includes(milestones.DEL) || originalStatus.includes(milestones.DWP)) {
         //* Modify the status for DEL and DWP based on the customer and consignee address
-        const conIsCu = await consigneeIsCustomer(_.get(shipment, 'FK_OrderNo'), types.CONSOL);
+        const conIsCu = await consigneeIsCustomer(
+          _.get(shipment, 'FK_OrderNo'),
+          types.CONSOL,
+          _.get(shipment, 'SeqNo')
+        );
         if (conIsCu) {
           console.info('Consignee is Customer. Send event DEL or DWP');
         } else {

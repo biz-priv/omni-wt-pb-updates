@@ -25,6 +25,7 @@ const {
   DB_SERVER,
   DB_PORT,
   DB_DATABASE,
+  ADDRESS_MAPPING_G_API_KEY,
 } = process.env;
 
 const types = {
@@ -244,8 +245,6 @@ class CustomAxiosError extends Error {
   }
 }
 
-
-
 async function executePreparedStatement({ housebill, city, state }) {
   try {
     // Define configuration for MSSQL connection
@@ -296,6 +295,103 @@ async function executePreparedStatement({ housebill, city, state }) {
   }
 }
 
+/**
+ * check address by google api
+ * @param {*} address1
+ * @param {*} address2
+ * @returns
+ * NOTE:- need a ssm parameter for google api url
+ */
+async function checkAddressByGoogleApi(address1, address2) {
+  let checkWithGapi = false;
+  let partialCheckWithGapi = false;
+
+  try {
+    const apiKey = ADDRESS_MAPPING_G_API_KEY;
+
+    // Get geocode data for address1
+    const geocode1 = await axios.get(
+      `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(
+        address1
+      )}&key=${apiKey}`
+    );
+    console.info('geocode1', geocode1);
+    if (geocode1.data.status !== 'OK') {
+      throw new Error(`Unable to geocode ${address1}`);
+    }
+    // Get geocode data for address2
+    const geocode2 = await axios.get(
+      `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(
+        address2
+      )}&key=${apiKey}`
+    );
+    console.info('geocode2', geocode2);
+    if (geocode2.data.status !== 'OK') {
+      throw new Error(`Unable to geocode ${address2}`);
+    }
+    console.info('geocode1', JSON.stringify(geocode1.data.results));
+    console.info('geocode2', JSON.stringify(geocode2.data.results));
+
+    const adType1 = geocode1.data?.results?.[0]?.geometry?.location_type;
+    const adType2 = geocode2.data?.results?.[0]?.geometry?.location_type;
+    /**
+     * check if distance is under 50 meters
+     */
+    if (adType1 === 'ROOFTOP' && adType2 === 'ROOFTOP') {
+      const coords1 = geocode1.data?.results?.[0]?.geometry?.location;
+      const coords2 = geocode2.data?.results?.[0]?.geometry?.location;
+
+      // Calculate the distance between the coordinates (in meters)
+      checkWithGapi = getDistance(coords1, coords2);
+    } else {
+      partialCheckWithGapi = true;
+
+      let addressArr = [];
+      if (adType1 !== 'ROOFTOP') {
+        addressArr = [...addressArr, address1];
+      }
+      if (adType2 !== 'ROOFTOP') {
+        addressArr = [...addressArr, address2];
+      }
+
+      throw new Error(
+        `Unable to locate address.  Please correct in worldtrak.\n${addressArr.join(' \nand ')}`
+      );
+    }
+
+    return { checkWithGapi, partialCheckWithGapi };
+  } catch (error) {
+    console.info('checkAddressByGoogleApi:error', error);
+    return { checkWithGapi, partialCheckWithGapi };
+  }
+}
+
+function getDistance(coords1, coords2) {
+  try {
+    const earthRadius = 6371000; // Radius of the earth in meters
+    const lat1 = toRadians(coords1.lat);
+    const lat2 = toRadians(coords2.lat);
+    const deltaLat = toRadians(coords2.lat - coords1.lat);
+    const deltaLng = toRadians(coords2.lng - coords1.lng);
+
+    const a =
+      Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2) +
+      Math.cos(lat1) * Math.cos(lat2) * Math.sin(deltaLng / 2) * Math.sin(deltaLng / 2);
+
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+    const distance = earthRadius * c;
+    return distance <= 50;
+  } catch (error) {
+    console.info('error:getDistance', error);
+    return false;
+  }
+}
+
+function toRadians(degrees) {
+  return (degrees * Math.PI) / 180;
+}
+
 module.exports = {
   types,
   milestones,
@@ -309,4 +405,5 @@ module.exports = {
   getActualTimestamp,
   CustomAxiosError,
   executePreparedStatement,
+  checkAddressByGoogleApi,
 };
