@@ -7,7 +7,7 @@
  */
 
 'use strict';
-
+const AWS = require('aws-sdk');
 const _ = require('lodash');
 const { makeSOAPRequest, updateAsComplete } = require('../shared/apis');
 const {
@@ -69,6 +69,12 @@ async function processRecord(record) {
   let type = '';
   let userId = '';
   try {
+    // Validate record transition before proceeding
+    if (!isTransitionToReadyToBill(record)) {
+      console.info('Record does not meet the ready_to_bill transition criteria. Skipping...');
+      return false;
+    }
+
     const parsedRecord = parseRecord(record);
     if (!parsedRecord) return false;
 
@@ -104,16 +110,7 @@ async function processRecord(record) {
       console.info('🚀 ~ file: index.js:93 ~ processRecord ~ billingUser:', billingUser);
       const pbUserEmail = _.get(billingUser, '[0].email_address', '');
       console.info('🚀 ~ file: index.js:95 ~ processRecord ~ userEmail:', pbUserEmail);
-      // let wtOpsUserId = '';
-      // if (type === types.MULTISTOP) {
-      //   wtOpsUserId = await queryShipmentApar({ consolNo });
-      // } else {
-      //   wtOpsUserId = await queryShipmentApar({ orderNo });
-      // }
-      // console.info('🚀 ~ file: index.js:98 ~ processRecord ~ wtOpsEmail:', wtOpsUserId);
-      // const wtOpsUserEmail = await fetchUserEmail({ userId: _.toLower(wtOpsUserId) });
-      // console.info('🚀 ~ file: index.js:101 ~ processRecord ~ wtOpsUserEmail:', wtOpsUserEmail); // commenting the WT user email logic.
-      // Kiran will provide us the Control Tower wise mapping with emails for each Tower.
+
       const emailContent = generateEmailContent({
         shipmentId,
         orderNo,
@@ -122,11 +119,8 @@ async function processRecord(record) {
         errorDetails: 'This shipment has already been finalized.',
         type,
       });
-      // Combine emails and remove invalid/empty entries
 
-      // const userEmails = [pbUserEmail, wtOpsUserEmail]
       const userEmails = [pbUserEmail]
-
         .filter((email) => email) // Remove empty entries
         .join(',');
       await sendSESEmail({
@@ -138,7 +132,6 @@ async function processRecord(record) {
     }
 
     const totalCharges = _.get(parsedRecord, 'total_charge', '0');
-
     const otherCharges = _.get(parsedRecord, 'otherchargetotal', '0.0');
     console.info('🚀 ~ file: index.js:138 ~ processRecord ~ otherCharges:', otherCharges);
 
@@ -152,7 +145,6 @@ async function processRecord(record) {
         consolNo,
       },
       otherCharges
-
     );
 
     return result;
@@ -165,6 +157,18 @@ async function processRecord(record) {
     });
     return false;
   }
+}
+
+/**
+ * Check if the record transition is ready to process
+ * @param {Object} record - The DynamoDB record
+ * @returns {boolean} - Returns true if the record meets the condition
+ */
+function isTransitionToReadyToBill(record) {
+  const oldImage = AWS.DynamoDB.Converter.unmarshall(_.get(record, 'dynamodb.OldImage', {}));
+  const newImage = AWS.DynamoDB.Converter.unmarshall(_.get(record, 'dynamodb.NewImage', {}));
+
+  return _.get(oldImage, 'ready_to_bill') === 'N' && _.get(newImage, 'ready_to_bill') === 'Y';
 }
 
 /**
