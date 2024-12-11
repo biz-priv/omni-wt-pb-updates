@@ -39,6 +39,7 @@ const {
   FINALISE_COST_STATUS_TABLE,
   PB_USERS_TABLE,
   WT_USERS_TABLE,
+  PB_CHARGES_TABLE,
 } = process.env;
 
 async function query(params) {
@@ -743,7 +744,7 @@ async function isAlreadyProcessed(shipmentId) {
 
 async function queryUsersTable({ userId }) {
   try {
-    if (userId === 'NULL' || userId === 'NA') {
+    if (userId === 'NULL' || userId === 'NA' || userId === '') {
       return '';
     }
 
@@ -764,48 +765,48 @@ async function queryUsersTable({ userId }) {
   }
 }
 
-async function queryShipmentApar({ orderNo, consolNo }) {
-  try {
-    let params;
-    const shipmentAparParams = {
-      TableName: SHIPMENT_APAR_TABLE,
-      KeyConditionExpression: 'FK_OrderNo = :orderno',
-      ExpressionAttributeValues: {
-        ':orderno': String(orderNo),
-      },
-      ProjectionExpression: 'FK_OrderNo, UpdatedBy',
-    };
+// async function queryShipmentApar({ orderNo, consolNo }) {
+//   try {
+//     let params;
+//     const shipmentAparParams = {
+//       TableName: SHIPMENT_APAR_TABLE,
+//       KeyConditionExpression: 'FK_OrderNo = :orderno',
+//       ExpressionAttributeValues: {
+//         ':orderno': String(orderNo),
+//       },
+//       ProjectionExpression: 'FK_OrderNo, UpdatedBy',
+//     };
 
-    const shipmentAparConsolParams = {
-      TableName: SHIPMENT_APAR_TABLE,
-      IndexName: SHIPMENT_APAR_INDEX_KEY_NAME,
-      KeyConditionExpression: 'ConsolNo = :ConsolNo',
-      FilterExpression: 'SeqNo = :seqno',
-      ExpressionAttributeValues: {
-        ':ConsolNo': String(consolNo),
-        ':seqno': '9999',
-      },
-      ProjectionExpression: 'FK_OrderNo, UpdatedBy',
-    };
+//     const shipmentAparConsolParams = {
+//       TableName: SHIPMENT_APAR_TABLE,
+//       IndexName: SHIPMENT_APAR_INDEX_KEY_NAME,
+//       KeyConditionExpression: 'ConsolNo = :ConsolNo',
+//       FilterExpression: 'SeqNo = :seqno',
+//       ExpressionAttributeValues: {
+//         ':ConsolNo': String(consolNo),
+//         ':seqno': '9999',
+//       },
+//       ProjectionExpression: 'FK_OrderNo, UpdatedBy',
+//     };
 
-    if (orderNo) {
-      params = shipmentAparParams;
-    } else {
-      params = shipmentAparConsolParams;
-    }
+//     if (orderNo) {
+//       params = shipmentAparParams;
+//     } else {
+//       params = shipmentAparConsolParams;
+//     }
 
-    const result = await query(params);
-    console.info('🙂 -> file: dynamo.js:313 -> getAparDataByConsole -> result:', result);
-    return _.get(result, 'Items[0].UpdatedBy', 'NA');
-  } catch (error) {
-    console.error('🙂 -> file: helper.js:546 -> error:', error);
-    throw error;
-  }
-}
+//     const result = await query(params);
+//     console.info('🙂 -> file: dynamo.js:313 -> getAparDataByConsole -> result:', result);
+//     return _.get(result, 'Items[0].UpdatedBy', 'NA');
+//   } catch (error) {
+//     console.error('🙂 -> file: helper.js:546 -> error:', error);
+//     throw error;
+//   }
+// }
 
 async function fetchUserEmail({ userId }) {
   try {
-    if (userId === 'NULL' || userId === 'NA') {
+    if (userId === 'NULL' || userId === 'na' || userId === '') {
       return '';
     }
     const params = {
@@ -822,6 +823,49 @@ async function fetchUserEmail({ userId }) {
   } catch (error) {
     console.error('🙂 -> file: helper.js:831 -> error:', error);
     throw error;
+  }
+}
+
+async function queryChargesTable({ shipmentId }) {
+  try {
+    const params = {
+      TableName: PB_CHARGES_TABLE,
+      IndexName: 'order_id-index',
+      KeyConditionExpression: 'order_id = :id',
+      ProjectionExpression: 'order_id,amount,charge_id,descr',
+      ExpressionAttributeValues: {
+        ':id': shipmentId,
+      },
+    };
+    console.info('🚀 ~ file: helper.js:841 ~ fetchUserEmail ~ param:', params);
+    const response = await dynamoDB.query(params).promise();
+    return _.get(response, 'Items', []);
+  } catch (error) {
+    console.error('🙂 -> file: helper.js:831 -> error:', error);
+    throw error;
+  }
+}
+
+async function queryShipmentAparTable(consolNo) {
+  const params = {
+    TableName: SHIPMENT_APAR_TABLE, 
+    IndexName: SHIPMENT_APAR_INDEX_KEY_NAME, 
+    KeyConditionExpression: 'ConsolNo = :ConsolNo',
+    FilterExpression: 'Consolidation = :consolidation AND FK_VendorId = :vendor',
+    ExpressionAttributeValues: {
+      ':ConsolNo': consolNo,
+      ':consolidation': 'N',
+      ':vendor': 'LIVELOGI',
+    },
+    ProjectionExpression: 'FK_OrderNo',
+  };
+
+  try {
+    const result = await dynamoDB.query(params).promise();
+    return _.get(result, 'Items', []);
+  } catch (error) {
+    console.error('Error querying SHIPMENT_APAR_TABLE:', error);
+    throw error; 
   }
 }
 
@@ -853,6 +897,8 @@ module.exports = {
   storeFinalizeCostStatus,
   isAlreadyProcessed,
   queryUsersTable,
-  queryShipmentApar,
+  // queryShipmentApar,
   fetchUserEmail,
+  queryChargesTable,
+  queryShipmentAparTable
 };

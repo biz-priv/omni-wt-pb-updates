@@ -37,5 +37,5 @@ function:
     PB_USERS_TABLE: ${ssm:/omni-pb-rt/${self:provider.stage}/users/db}
     WT_USERS_TABLE: ${ssm:/omni-wt-rt-updates/${self:provider.stage}/users/ddb.tableName}
     SHIPMENT_APAR_TABLE: ${ssm:/omni-wt-rt-updates/${self:provider.stage}/shipment-apar/ddb.tableName}
-    SHIPMENT_APAR_INDEX_KEY_NAME: ${ssm:/omni-wt-rt-updates/${self:provider.stage}/shipment-apar/ddb.ConsolNoIndex}   
-  
+    SHIPMENT_APAR_INDEX_KEY_NAME: ${ssm:/omni-wt-rt-updates/${self:provider.stage}/shipment-apar/ddb.ConsolNoIndex}
+    PB_CHARGES_TABLE: ${ssm:/omni-pb-rt/${self:provider.stage}/other-charge/db}

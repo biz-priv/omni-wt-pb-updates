@@ -24,8 +24,10 @@ const {
   storeFinalizeCostStatus,
   isAlreadyProcessed,
   queryUsersTable,
-  queryShipmentApar,
-  fetchUserEmail,
+  // queryShipmentApar,
+  // fetchUserEmail,
+  queryChargesTable,
+  queryShipmentAparTable
 } = require('../shared/dynamo');
 const xmljs = require('xml-js');
 const moment = require('moment-timezone');
@@ -85,6 +87,11 @@ async function processRecord(record) {
     console.info('🚀 ~ file: index.js:80 ~ processRecord ~ orderNo:', orderNo);
     console.info('🚀 ~ file: index.js:81 ~ processRecord ~ housebill:', housebill);
 
+    if (!isReadyToBill(parsedRecord)) {
+      console.info('Record not ready to bill.');
+      return false;
+    }
+
     // Check if the record is already processed
     const processedRecords = await isAlreadyProcessed(shipmentId);
     console.info('🚀 ~ file: index.js:85 ~ processRecord ~ processedRecords:', processedRecords);
@@ -97,15 +104,16 @@ async function processRecord(record) {
       console.info('🚀 ~ file: index.js:93 ~ processRecord ~ billingUser:', billingUser);
       const pbUserEmail = _.get(billingUser, '[0].email_address', '');
       console.info('🚀 ~ file: index.js:95 ~ processRecord ~ userEmail:', pbUserEmail);
-      let wtOpsUserId;
-      if (type === types.MULTISTOP) {
-        wtOpsUserId = await queryShipmentApar({ consolNo });
-      } else {
-        wtOpsUserId = await queryShipmentApar({ orderNo });
-      }
-      console.info('🚀 ~ file: index.js:98 ~ processRecord ~ wtOpsEmail:', wtOpsUserId);
-      const wtOpsUserEmail = await fetchUserEmail({ userId: _.toLower(wtOpsUserId) });
-      console.info('🚀 ~ file: index.js:101 ~ processRecord ~ wtOpsUserEmail:', wtOpsUserEmail);
+      // let wtOpsUserId = '';
+      // if (type === types.MULTISTOP) {
+      //   wtOpsUserId = await queryShipmentApar({ consolNo });
+      // } else {
+      //   wtOpsUserId = await queryShipmentApar({ orderNo });
+      // }
+      // console.info('🚀 ~ file: index.js:98 ~ processRecord ~ wtOpsEmail:', wtOpsUserId);
+      // const wtOpsUserEmail = await fetchUserEmail({ userId: _.toLower(wtOpsUserId) });
+      // console.info('🚀 ~ file: index.js:101 ~ processRecord ~ wtOpsUserEmail:', wtOpsUserEmail); // commenting the WT user email logic.
+      // Kiran will provide us the Control Tower wise mapping with emails for each Tower.
       const emailContent = generateEmailContent({
         shipmentId,
         orderNo,
@@ -115,7 +123,10 @@ async function processRecord(record) {
         type,
       });
       // Combine emails and remove invalid/empty entries
-      const userEmails = [pbUserEmail, wtOpsUserEmail]
+
+      // const userEmails = [pbUserEmail, wtOpsUserEmail]
+      const userEmails = [pbUserEmail]
+
         .filter((email) => email) // Remove empty entries
         .join(',');
       await sendSESEmail({
@@ -126,18 +137,23 @@ async function processRecord(record) {
       return false;
     }
 
-    if (!isReadyToBill(parsedRecord)) {
-      console.info('Record not ready to bill.');
-      return false;
-    }
-
     const totalCharges = _.get(parsedRecord, 'total_charge', '0');
 
-    const result = await processFinalizedCost(shipmentId, totalCharges, type, {
-      housebill,
-      orderNo,
-      consolNo,
-    });
+    const otherCharges = _.get(parsedRecord, 'otherchargetotal', '0.0');
+    console.info('🚀 ~ file: index.js:138 ~ processRecord ~ otherCharges:', otherCharges);
+
+    const result = await processFinalizedCost(
+      shipmentId,
+      totalCharges,
+      type,
+      {
+        housebill,
+        orderNo,
+        consolNo,
+      },
+      otherCharges
+
+    );
 
     return result;
   } catch (error) {
@@ -211,36 +227,39 @@ function isReadyToBill(record) {
  * Process the finalized cost
  * @param {string} shipmentId - The shipment ID
  * @param {string} totalCharges - The total charges
+ * @param {string} type - The shipment type
  * @param {Object} shipmentInfo - Object containing shipment information
  * @returns {Promise<boolean>} - Returns true if processing was successful
  */
-async function processFinalizedCost(shipmentId, totalCharges, type, shipmentInfo) {
-  const finaliseCostRequest = generateFinaliseCostPayload({
-    referenceNo: shipmentId,
-    totalCharges,
-    invoiceNumber: shipmentId,
-    invoiceDate: moment.tz('America/Chicago').format('YYYY-MM-DD'),
-  });
+async function processFinalizedCost(shipmentId, totalCharges, type, shipmentInfo, otherCharges) {
+  try {
+    const finaliseCostRequest = generateFinaliseCostPayload({
+      referenceNo: shipmentId,
+      totalCharges,
+      invoiceNumber: shipmentId,
+      invoiceDate: moment.tz('America/Chicago').format('YYYY-MM-DD'),
+    });
 
-  const response = await makeSOAPRequest(finaliseCostRequest);
-  const errorDetails = parseSOAPResponse(response);
-  console.info('🚀 ~ file: index.js:176 ~ processFinalizedCost ~ errorMessage:', errorDetails);
-  const errorMessage = _.get(errorDetails, 'message', '');
+    const response = await makeSOAPRequest(finaliseCostRequest);
+    const errorDetails = parseSOAPResponse(response);
+    const errorMessage = _.get(errorDetails, 'message', '');
+    const errorStatus = _.get(errorDetails, 'status', false);
 
-  if (_.get(errorDetails, 'status', false) === false) {
-    let customErrorMessage;
+    console.info('Error Details:', errorDetails);
 
-    if (errorMessage.includes('Reference # for Vendor Not Found')) {
-      customErrorMessage = `The reference number ${shipmentId} for LIVELOGI could not be found.`;
-    } else if (
-      errorMessage.includes('The Vendor/Reference # combination Combination Must be Unique')
-    ) {
-      customErrorMessage =
-        'The combination of vendor and reference number must be unique. Duplicate records detected.';
-    } else if (errorMessage.endsWith('is already Finalized')) {
-      customErrorMessage = `This invoice/refNo with ${shipmentId} has already been finalized. This request could not be processed again.`;
+    if (!errorStatus) {
+      await handleError(
+        shipmentId,
+        errorMessage,
+        shipmentInfo,
+        finaliseCostRequest,
+        response,
+        type
+      );
+    } else if (errorMessage.includes('Pending Approval')) {
+      await handlePendingApproval(shipmentId, shipmentInfo, type, totalCharges, otherCharges);
     } else {
-      customErrorMessage = errorMessage;
+      await markShipmentAsComplete(shipmentInfo, type);
     }
 
     await storeFinalizeCostStatus({
@@ -248,43 +267,48 @@ async function processFinalizedCost(shipmentId, totalCharges, type, shipmentInfo
       shipmentId,
       finaliseCostRequest,
       response,
-      Status: status.FAILED,
-      errorMessage: customErrorMessage,
-      type,
-    });
-    throw new Error(`${customErrorMessage}`);
-  } else if (errorMessage.includes('Pending Approval')) {
-    console.info('Error message indicates Pending Approval. Sending email.');
-
-    // Generate email content
-    const emailContent = generateEmailContent({
-      shipmentId,
-      orderNo: _.get(shipmentInfo, 'orderNo', ''),
-      consolNo: _.get(shipmentInfo, 'consolNo', ''),
-      housebill: _.get(shipmentInfo, 'housebill', ''),
-      errorDetails: 'Due to discrepancies in cost, this shipment is in a pending approval state.',
+      Status: errorStatus ? status.SENT : status.FAILED,
+      errorMessage,
       type,
     });
 
-    await sendSESEmail({
-      message: emailContent,
-      subject: `Shipment with #PRO Number ${shipmentId} is Pending Approval`,
-    });
+    return true;
+  } catch (error) {
+    console.error('Error in processFinalizedCost:', error);
+    throw error;
+  }
+}
 
-    console.info('Pending Approval email sent.');
+/**
+ * Handle errors during processing
+ * @param {string} shipmentId
+ * @param {string} errorMessage
+ * @param {Object} shipmentInfo
+ * @param {Object} finaliseCostRequest
+ * @param {Object} response
+ * @param {string} type
+ */
+async function handleError(
+  shipmentId,
+  errorMessage,
+  shipmentInfo,
+  finaliseCostRequest,
+  response,
+  type
+) {
+  let customErrorMessage;
+
+  if (errorMessage.includes('Reference # for Vendor Not Found')) {
+    customErrorMessage = `The reference number ${shipmentId} for LIVELOGI could not be found.`;
   } else if (
-    _.get(errorDetails, 'status', false) === true &&
-    !errorMessage.includes('Pending Approval')
+    errorMessage.includes('The Vendor/Reference # combination Combination Must be Unique')
   ) {
-    console.info('Shipment should be marked as complete.');
-    let fkOrderNo;
-    if (type === types.MULTISTOP) {
-      fkOrderNo = _.get(shipmentInfo, 'consolNo');
-    } else {
-      fkOrderNo = _.get(shipmentInfo, 'orderNo');
-    }
-    const query = `update dbo.tbl_shipmentapar set Complete = 'Y' where fk_orderno='${fkOrderNo}' and APARCode = 'V'`;
-    await updateAsComplete(query);
+    customErrorMessage =
+      'The combination of vendor and reference number must be unique. Duplicate records detected.';
+  } else if (errorMessage.endsWith('is already Finalized')) {
+    customErrorMessage = `This invoice/refNo with ${shipmentId} has already been finalized. This request could not be processed again.`;
+  } else {
+    customErrorMessage = errorMessage;
   }
 
   await storeFinalizeCostStatus({
@@ -292,12 +316,85 @@ async function processFinalizedCost(shipmentId, totalCharges, type, shipmentInfo
     shipmentId,
     finaliseCostRequest,
     response,
-    Status: status.SENT,
-    errorMessage,
+    Status: status.FAILED,
+    errorMessage: customErrorMessage,
     type,
   });
 
-  return true;
+  throw new Error(customErrorMessage);
+}
+
+/**
+ * Handle shipments in pending approval state
+ * @param {string} shipmentId
+ * @param {Object} shipmentInfo
+ * @param {string} type
+ */
+/**
+ * Handle shipments in pending approval state
+ * @param {string} shipmentId
+ * @param {Object} shipmentInfo
+ * @param {string} type
+ */
+async function handlePendingApproval(shipmentId, shipmentInfo, type, totalCharges, otherCharges) {
+  let liveCharges = [];
+  
+  if (otherCharges !== '0.0') {
+    console.info('Other charges are greater than 0.');
+    liveCharges = await queryChargesTable({ shipmentId });
+    console.info('🚀 ~ file: index.js:304 ~ handlePendingApproval ~ liveCharges:', liveCharges);
+  }
+
+  const emailContent = generateEmailContent({
+    shipmentId,
+    orderNo: _.get(shipmentInfo, 'orderNo', ''),
+    consolNo: _.get(shipmentInfo, 'consolNo', ''),
+    housebill: _.get(shipmentInfo, 'housebill', ''),
+    type,
+    liveCharges,
+    totalCharges: liveCharges.length === 0 ? totalCharges : '' // Pass totalCharges if liveCharges is empty
+  });
+
+  await sendSESEmail({
+    message: emailContent,
+    subject: `Shipment with #PRO Number ${shipmentId} is Pending Approval - ${_.toUpper(STAGE)}`,
+  });
+
+  await markShipmentAsComplete(shipmentInfo, type);
+  console.info('Pending Approval email sent. Shipment marked as complete.');
+}
+
+/**
+ * Mark the shipment as complete in the database
+ * @param {Object} shipmentInfo
+ * @param {string} type
+ */
+async function markShipmentAsComplete(shipmentInfo, type) {
+  try {
+    let fkOrderNo;
+    let fkOrderNos = [];
+
+    if (type === types.MULTISTOP || type === types.CONSOL) {
+      const consolNo = _.get(shipmentInfo, 'consolNo');
+      const results = await queryShipmentAparTable(consolNo); // Query the table using ConsolNo
+      console.info('🚀 ~ file: index.js:380 ~ markShipmentAsComplete ~ results:', results)
+      fkOrderNos = results.map(item => item.FK_OrderNo); // Extract FK_OrderNo from the results
+    } else {
+      fkOrderNo = _.get(shipmentInfo, 'orderNo');
+      if (fkOrderNo) fkOrderNos.push(fkOrderNo);
+    }
+
+    // Mark each FK_OrderNo as complete
+    for (const orderNo of fkOrderNos) {
+      const query = `UPDATE dbo.tbl_shipmentapar SET Complete = 'Y' WHERE fk_orderno='${orderNo}' AND APARCode = 'V'`;
+      await updateAsComplete(query);
+    }
+
+    console.info('All relevant shipments are marked as complete.');
+  } catch (error) {
+    console.error('Error marking shipment as complete:', error);
+    throw error;
+  }
 }
 
 /**
@@ -367,7 +464,7 @@ async function sendErrorNotification(shipmentId, shipmentInfo, errorDetails, typ
   });
 
   let pbUserEmail = '';
-  let wtOpsUserEmail = '';
+  // let wtOpsUserEmail = '';
 
   // Fetch email addresses if error involves reference number
   if (errorDetails.includes('The reference number')) {
@@ -376,26 +473,28 @@ async function sendErrorNotification(shipmentId, shipmentInfo, errorDetails, typ
       pbUserEmail = _.get(billingUser, '[0].email_address', '');
       console.info('Billing User Email:', pbUserEmail);
 
-      let wtOpsUserId;
-      if (type === types.MULTISTOP) {
-        wtOpsUserId = await queryShipmentApar({ consolNo });
-      } else {
-        wtOpsUserId = await queryShipmentApar({ orderNo });
-      }
+      // let wtOpsUserId;
+      // if (type === types.MULTISTOP) {
+      //   wtOpsUserId = await queryShipmentApar({ consolNo });
+      // } else {
+      //   wtOpsUserId = await queryShipmentApar({ orderNo });
+      // }
 
-      console.info('WT Ops User ID:', wtOpsUserId);
+      // console.info('WT Ops User ID:', wtOpsUserId);
 
-      if (wtOpsUserId) {
-        wtOpsUserEmail = await fetchUserEmail({ userId: _.toLower(wtOpsUserId) });
-        console.info('WT Ops User Email:', wtOpsUserEmail);
-      }
+      // if (wtOpsUserId) {
+      //   wtOpsUserEmail = await fetchUserEmail({ userId: _.toLower(wtOpsUserId) });
+      //   console.info('WT Ops User Email:', wtOpsUserEmail);
+      // }
     } catch (error) {
       console.error('Error fetching user emails:', error);
     }
   }
 
   // Combine emails and remove invalid/empty entries
-  const userEmails = [pbUserEmail, wtOpsUserEmail]
+  // const userEmails = [pbUserEmail, wtOpsUserEmail]
+  const userEmails = [pbUserEmail]
+
     .filter((email) => email) // Remove empty entries
     .join(',');
 
