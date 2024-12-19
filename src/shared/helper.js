@@ -274,7 +274,7 @@ async function executePreparedStatement({ housebill, city, state }) {
     console.error('Prepared Statement error', err);
     throw err;
   }
-} return result
+}
 
 /**
  * check address by google api
