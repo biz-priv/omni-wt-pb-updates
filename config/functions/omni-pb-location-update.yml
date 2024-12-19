@@ -50,3 +50,5 @@ function:
     DB_DATABASE: ${ssm:/omni-dw/${self:provider.stage}/worldTrak/source-db/name}
     WT_SOAP_PASSWORD: ${ssm:/omni-dw/${self:provider.stage}/wt/soap/password}
     TRACKING_NOTES_API_URL: ${ssm:/omni-ivia/${self:provider.stage}/createShipment/xmlUpdate/url}
+    DB_URL : ${ssm:/omni-common-utils-infra/${self:provider.stage}/update-source-db/api-url}
+    DB_API_KEY : ${ssm:/omni-common-utils-infra/${self:provider.stage}/common-utils/api-key}
