@@ -426,7 +426,6 @@ function generateEmailContent({
         <table class="charges-table">
           <thead>
             <tr>
-              <th>PRO Number</th>
               <th>Charge ID</th>
               <th>Description</th>
               <th>Amount</th>
@@ -439,7 +438,6 @@ function generateEmailContent({
                 charge.amount || 0;
               return `
                 <tr>
-                  <td>${charge.order_id}</td>
                   <td>${charge.charge_id}</td>
                   <td>${charge.descr}</td>
                   <td>$${amount.toFixed(2)}</td>
@@ -447,7 +445,7 @@ function generateEmailContent({
               `;
             }).join('')}
             <tr class="total-row">
-              <td colspan="3" style="text-align: right; font-weight: bold;">Total:</td>
+              <td colspan="2" style="text-align: right; font-weight: bold;">Total:</td>
               <td style="font-weight: bold;">$${parseFloat(totalCharges).toFixed(2)}</td>
             </tr>
           </tbody>
@@ -521,11 +519,8 @@ function generateEmailContent({
       <span class="highlight">Consolidation Number:</span> <strong>${consolNo}</strong><br>
       <span class="highlight">blnum:</span> <strong>${housebill}</strong>
     </p>
-
     ${errorContent}
-
     <p>Please contact the operations to finalize the cost for this shipment.</p>
-
     <p>Thank you,<br>Omni Data Engineering Team</p>
     <p class="footer">Note: This is a system-generated email. Please do not reply to this email.</p>
   </div>
