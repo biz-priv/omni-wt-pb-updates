@@ -945,8 +945,8 @@ async function queryChargesTable({ shipmentId }) {
 
 async function queryShipmentAparTable(consolNo) {
   const params = {
-    TableName: SHIPMENT_APAR_TABLE, 
-    IndexName: SHIPMENT_APAR_INDEX_KEY_NAME, 
+    TableName: SHIPMENT_APAR_TABLE,
+    IndexName: SHIPMENT_APAR_INDEX_KEY_NAME,
     KeyConditionExpression: 'ConsolNo = :ConsolNo',
     FilterExpression: 'Consolidation = :consolidation AND FK_VendorId = :vendor',
     ExpressionAttributeValues: {
@@ -962,7 +962,7 @@ async function queryShipmentAparTable(consolNo) {
     return _.get(result, 'Items', []);
   } catch (error) {
     console.error('Error querying SHIPMENT_APAR_TABLE:', error);
-    throw error; 
+    throw error;
   }
 }
 
@@ -997,5 +997,5 @@ module.exports = {
   // queryShipmentApar,
   fetchUserEmail,
   queryChargesTable,
-  queryShipmentAparTable
+  queryShipmentAparTable,
 };
