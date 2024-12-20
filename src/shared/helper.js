@@ -408,7 +408,6 @@ function generateEmailContent({
         <table class="charges-table">
           <thead>
             <tr>
-              <th>PRO Number</th>
               <th>Charge ID</th>
               <th>Description</th>
               <th>Amount</th>
@@ -421,7 +420,6 @@ function generateEmailContent({
                 charge.amount || 0;
               return `
                 <tr>
-                  <td>${charge.order_id}</td>
                   <td>${charge.charge_id}</td>
                   <td>${charge.descr}</td>
                   <td>$${amount.toFixed(2)}</td>
@@ -429,7 +427,7 @@ function generateEmailContent({
               `;
             }).join('')}
             <tr class="total-row">
-              <td colspan="3" style="text-align: right; font-weight: bold;">Total:</td>
+              <td colspan="2" style="text-align: right; font-weight: bold;">Total:</td>
               <td style="font-weight: bold;">$${parseFloat(totalCharges).toFixed(2)}</td>
             </tr>
           </tbody>
@@ -499,7 +497,7 @@ function generateEmailContent({
     <p>We were unable to finalize the cost associated with the shipment. Below are the details:</p>
     <p>
       <span class="highlight">#PRO:</span> <strong>${shipmentId}</strong><br>
-      ${type !== 'MULTISTOP' ? `<span class="highlight">FileNo:</span> <strong>${orderNo}</strong><br>` : ''}
+      ${type !== types.MULTISTOP ? `<span class="highlight">FileNo:</span> <strong>${orderNo}</strong><br>` : ''}
       <span class="highlight">Consolidation Number:</span> <strong>${consolNo}</strong><br>
       <span class="highlight">blnum:</span> <strong>${housebill}</strong>
     </p>
