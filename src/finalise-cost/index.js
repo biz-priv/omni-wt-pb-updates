@@ -27,7 +27,7 @@ const {
   // queryShipmentApar,
   // fetchUserEmail,
   queryChargesTable,
-  queryShipmentAparTable
+  queryShipmentAparTable,
 } = require('../shared/dynamo');
 const xmljs = require('xml-js');
 const moment = require('moment-timezone');
@@ -133,6 +133,7 @@ async function processRecord(record) {
 
     const totalCharges = _.get(parsedRecord, 'total_charge', '0');
     const otherCharges = _.get(parsedRecord, 'otherchargetotal', '0.0');
+    const freightCharges = _.get(parsedRecord, 'freight_charge', '0.0');
     console.info('🚀 ~ file: index.js:138 ~ processRecord ~ otherCharges:', otherCharges);
 
     const result = await processFinalizedCost(
@@ -144,7 +145,8 @@ async function processRecord(record) {
         orderNo,
         consolNo,
       },
-      otherCharges
+      otherCharges,
+      freightCharges
     );
 
     return result;
@@ -238,7 +240,14 @@ function isReadyToBill(record) {
  * @param {Object} shipmentInfo - Object containing shipment information
  * @returns {Promise<boolean>} - Returns true if processing was successful
  */
-async function processFinalizedCost(shipmentId, totalCharges, type, shipmentInfo, otherCharges) {
+async function processFinalizedCost(
+  shipmentId,
+  totalCharges,
+  type,
+  shipmentInfo,
+  otherCharges,
+  freightCharges
+) {
   try {
     const finaliseCostRequest = generateFinaliseCostPayload({
       referenceNo: shipmentId,
@@ -264,7 +273,14 @@ async function processFinalizedCost(shipmentId, totalCharges, type, shipmentInfo
         type
       );
     } else if (errorMessage.includes('Pending Approval')) {
-      await handlePendingApproval(shipmentId, shipmentInfo, type, totalCharges, otherCharges);
+      await handlePendingApproval(
+        shipmentId,
+        shipmentInfo,
+        type,
+        totalCharges,
+        otherCharges,
+        freightCharges
+      );
     } else {
       await markShipmentAsComplete(shipmentInfo, type);
     }
@@ -343,9 +359,16 @@ async function handleError(
  * @param {Object} shipmentInfo
  * @param {string} type
  */
-async function handlePendingApproval(shipmentId, shipmentInfo, type, totalCharges, otherCharges) {
+async function handlePendingApproval(
+  shipmentId,
+  shipmentInfo,
+  type,
+  totalCharges,
+  otherCharges,
+  freightCharges
+) {
   let liveCharges = [];
-  
+
   if (otherCharges !== '0.0') {
     console.info('Other charges are greater than 0.');
     liveCharges = await queryChargesTable({ shipmentId });
@@ -359,7 +382,8 @@ async function handlePendingApproval(shipmentId, shipmentInfo, type, totalCharge
     housebill: _.get(shipmentInfo, 'housebill', ''),
     type,
     liveCharges,
-    totalCharges: liveCharges.length === 0 ? totalCharges : '' // Pass totalCharges if liveCharges is empty
+    totalCharges,
+    freightCharges,
   });
 
   await sendSESEmail({
@@ -384,8 +408,8 @@ async function markShipmentAsComplete(shipmentInfo, type) {
     if (type === types.MULTISTOP || type === types.CONSOL) {
       const consolNo = _.get(shipmentInfo, 'consolNo');
       const results = await queryShipmentAparTable(consolNo); // Query the table using ConsolNo
-      console.info('🚀 ~ file: index.js:380 ~ markShipmentAsComplete ~ results:', results)
-      fkOrderNos = results.map(item => item.FK_OrderNo); // Extract FK_OrderNo from the results
+      console.info('🚀 ~ file: index.js:380 ~ markShipmentAsComplete ~ results:', results);
+      fkOrderNos = results.map((item) => item.FK_OrderNo); // Extract FK_OrderNo from the results
     } else {
       fkOrderNo = _.get(shipmentInfo, 'orderNo');
       if (fkOrderNo) fkOrderNos.push(fkOrderNo);

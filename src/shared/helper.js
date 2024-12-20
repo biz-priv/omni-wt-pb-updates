@@ -393,11 +393,6 @@ function generateFinaliseCostPayload({ referenceNo, totalCharges, invoiceNumber,
  * @param {Object} params - Parameters for email content
  * @returns {string} - HTML email content
  */
-/**
- * Generate HTML email content
- * @param {Object} params - Parameters for email content
- * @returns {string} - HTML email content
- */
 function generateEmailContent({
   shipmentId,
   orderNo,
@@ -406,54 +401,63 @@ function generateEmailContent({
   errorDetails = '',
   type,
   liveCharges = [],
+  freightCharges,
   totalCharges = ''
 }) {
   let errorContent = '';
-
+  
   if (liveCharges && liveCharges.length > 0) {
-    errorContent = `
-    <p><span class="highlight">Error Details:</span> Due to discrepancies in cost, this shipment is in a pending approval state.</p>
-    <div style="margin-top: 20px;">
-      <p><span class="highlight">Live Charges Breakdown:</span></p>
-      <table class="charges-table">
-        <thead>
-          <tr>
-            <th>PRO Number</th>
-            <th>Charge ID</th>
-            <th>Description</th>
-            <th>Amount</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${liveCharges
-            .map((charge) => {
-              const amount =
-                typeof charge.amount === 'string'
-                  ? parseFloat(charge.amount) || 0
-                  : charge.amount || 0;
+    // Create a new array that includes both live charges and freight charges
+    const allCharges = [
+      ...liveCharges,
+      // Add freight charges as a new row if it exists
+      ...(freightCharges ? [{
+        order_id: shipmentId,
+        charge_id: '',
+        descr: 'Freight Charges',
+        amount: freightCharges
+      }] : [])
+    ];
 
+    errorContent = `
+      <p><span class="highlight">Error Details:</span> Due to discrepancies in cost, this shipment is in a pending approval state.</p>
+      <div style="margin-top: 20px;">
+        <p><span class="highlight">Live Charges Breakdown:</span></p>
+        <table class="charges-table">
+          <thead>
+            <tr>
+              <th>PRO Number</th>
+              <th>Charge ID</th>
+              <th>Description</th>
+              <th>Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${allCharges.map((charge) => {
+              const amount = typeof charge.amount === 'string' ? 
+                parseFloat(charge.amount) || 0 : 
+                charge.amount || 0;
               return `
-              <tr>
-                <td>${charge.order_id}</td>
-                <td>${charge.charge_id}</td>
-                <td>${charge.descr}</td>
-                <td>$${amount.toFixed(2)}</td>
-              </tr>
-            `;
-            })
-            .join('')}
-        </tbody>
-      </table>
-    </div>
+                <tr>
+                  <td>${charge.order_id}</td>
+                  <td>${charge.charge_id}</td>
+                  <td>${charge.descr}</td>
+                  <td>$${amount.toFixed(2)}</td>
+                </tr>
+              `;
+            }).join('')}
+            <tr class="total-row">
+              <td colspan="3" style="text-align: right; font-weight: bold;">Total:</td>
+              <td style="font-weight: bold;">$${parseFloat(totalCharges).toFixed(2)}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     `;
   } else if (totalCharges) {
-    errorContent = `
-    <p><span class="highlight">Error Details:</span> The charges in PB ($${parseFloat(totalCharges).toFixed(2)}) exceed those in WT.</p>
-    `;
+    errorContent = `<p><span class="highlight">Error Details:</span> The charges in PB ($${parseFloat(totalCharges).toFixed(2)}) exceed those in WT.</p>`;
   } else if (errorDetails) {
-    errorContent = `
-    <p><span class="highlight">Error Details:</span> ${errorDetails}</p>
-    `;
+    errorContent = `<p><span class="highlight">Error Details:</span> ${errorDetails}</p>`;
   }
 
   return `<!DOCTYPE html>
@@ -482,7 +486,8 @@ function generateEmailContent({
       border-collapse: collapse;
       margin-top: 15px;
     }
-    .charges-table th, .charges-table td {
+    .charges-table th,
+    .charges-table td {
       border: 1px solid #ddd;
       padding: 8px;
       text-align: left;
@@ -490,6 +495,9 @@ function generateEmailContent({
     .charges-table th {
       background-color: #f9f9f9;
       font-weight: bold;
+    }
+    .total-row {
+      background-color: #f9f9f9;
     }
     .footer {
       font-size: 0.85em;
