@@ -258,7 +258,7 @@ async function executePreparedStatement({ housebill, city, state }) {
         'x-api-key': apiKey
       },
       data: {
-        query: `UPDATE tbl_ShipmentHeader set FreightCity = @${city}, FreightState = @${state} WHERE Housebill = @${housebill}`
+        query: `UPDATE tbl_ShipmentHeader set FreightCity = '${city}', FreightState = '${state}' WHERE Housebill = '${housebill}'`
       }
     };
 
