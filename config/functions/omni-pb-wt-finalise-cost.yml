@@ -1,0 +1,41 @@
+---
+function:
+  handler: src/finalise-cost/index.handler
+  name: pb-wt-finalise-cost-${self:provider.stage}
+  description: OMNI PB WT Finalise Cost Process - ${self:provider.stage}
+  layers:
+    - { Ref: NodeModulesLambdaLayer }
+  timeout: 600
+  tags:
+    Name: pb-wt-finalise-cost-${self:provider.stage}
+  package:
+    patterns:
+      - '!**/*'
+      - 'src/finalise-cost/index.js'
+      - 'src/shared/*'
+
+  events:
+    - sqs:
+        arn: ${ssm:/omni-pb-wt-updates/${self:provider.stage}/finalise-cost/sqs.arn}
+        batchSize: 1
+
+  environment:
+    ENVIRONMENT: ${self:provider.stage}
+    STAGE: ${self:provider.stage}
+    ORDERS_TABLE_NAME: ${ssm:/omni-pb-rt/${self:provider.stage}/orders/db}
+    ORDER_STATUS_TABLE_NAME: ${ssm:/omni-204-create-shipment/${self:provider.stage}/status/ddb.name}
+    CONSOL_STATUS_TABLE_NAME: ${ssm:/omni-live-204/${self:provider.stage}/consol-status/ddb.tableName}
+    WT_SOAP_USERNAME: ${ssm:/omni-dw/${self:provider.stage}/wt/soap/username}
+    WT_SOAP_PASSWORD: ${ssm:/omni-dw/${self:provider.stage}/wt/soap/password}
+    FINALISE_COST_QUEUE_URL: ${ssm:/omni-pb-wt-updates/${self:provider.stage}/finalise-cost/sqs.url}
+    FINALISE_COST_ENDPOINT: ${ssm:/omni-pb-wt-updates/${self:provider.stage}/finalise-cost/api.endpoint}
+    LIVELOGI_VENDOR_REMITNO: ${ssm:/omni-pb-wt-updates/${self:provider.stage}/livelogi/remitVendorNo}
+    FINALISE_COST_STATUS_TABLE: ${ssm:/omni-pb-wt-updates/${self:provider.stage}/finalise-cost/dynamoDb.tableName}
+    OMNI_NO_REPLY_EMAIL: ${ssm:/omni-204-create-shipment/${self:provider.stage}/omni-no-reply/email}
+    UPDATE_SOURCE_DB_API_KEY: ${ssm:/omni-common-utils-infra/${self:provider.stage}/common-utils/api-key}
+    UPDATE_SOURCE_DB_API_URL: ${ssm:/omni-common-utils-infra/${self:provider.stage}/update-source-db/api-url}
+    PB_USERS_TABLE: ${ssm:/omni-pb-rt/${self:provider.stage}/users/db}
+    WT_USERS_TABLE: ${ssm:/omni-wt-rt-updates/${self:provider.stage}/users/ddb.tableName}
+    SHIPMENT_APAR_TABLE: ${ssm:/omni-wt-rt-updates/${self:provider.stage}/shipment-apar/ddb.tableName}
+    SHIPMENT_APAR_INDEX_KEY_NAME: ${ssm:/omni-wt-rt-updates/${self:provider.stage}/shipment-apar/ddb.ConsolNoIndex}
+    PB_CHARGES_TABLE: ${ssm:/omni-pb-rt/${self:provider.stage}/other-charge/db}

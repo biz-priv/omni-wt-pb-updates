@@ -15,7 +15,9 @@ const AWS = require('aws-sdk');
 const moment = require('moment-timezone');
 const sql = require('mssql');
 
+const ses = new AWS.SES();
 const sqs = new AWS.SQS();
+
 const {
   WT_SOAP_USERNAME,
   ADD_MILESTONE_URL_2,
@@ -25,6 +27,9 @@ const {
   DB_SERVER,
   DB_PORT,
   DB_DATABASE,
+  OMNI_NO_REPLY_EMAIL,
+  WT_SOAP_PASSWORD,
+  LIVELOGI_VENDOR_REMITNO,
   ADDRESS_MAPPING_G_API_KEY,
 } = process.env;
 
@@ -296,6 +301,244 @@ async function executePreparedStatement({ housebill, city, state }) {
 }
 
 /**
+ * Send email using AWS SES
+ * @param {Object} params - Parameters for sending email
+ */
+async function sendSESEmail({ message, subject, userEmail = '' }) {
+  try {
+    const EMAIL_RECIPIENTS = [
+      'msazeed@omnilogistics.com',
+      'juddin@omnilogistics.com',
+      'kvallabhaneni@omnilogistics.com',
+    ];
+
+    // Check if subject matches and append the additional email
+    if (
+      subject.startsWith('Finalize Cost Failed for Shipment') ||
+      subject.includes('Shipment with #PRO Number')
+    ) {
+      EMAIL_RECIPIENTS.push('brokerageops4@omnilogistics.com');
+    }
+
+    // Append emails from userEmail, if provided
+    if (userEmail) {
+      // Split the userEmail string into an array of individual emails
+      const additionalEmails = userEmail.split(',').map((email) => email.trim());
+      EMAIL_RECIPIENTS.push(...additionalEmails);
+    }
+
+    const params = {
+      Destination: {
+        ToAddresses: EMAIL_RECIPIENTS,
+      },
+      Message: {
+        Body: {
+          Html: {
+            Data: message,
+            Charset: 'UTF-8',
+          },
+        },
+        Subject: {
+          Data: subject,
+          Charset: 'UTF-8',
+        },
+      },
+      Source: OMNI_NO_REPLY_EMAIL,
+    };
+
+    await ses.sendEmail(params).promise();
+    console.info('Email sent successfully to:', EMAIL_RECIPIENTS.join(', '));
+  } catch (error) {
+    console.error('Error sending email with SES:', error);
+    throw error;
+  }
+}
+
+/**
+ * Generates the payload for the SOAP request.
+ * @param {Object} params - Parameters for the SOAP request
+ * @returns {string} - The generated SOAP request
+ */
+function generateFinaliseCostPayload({ referenceNo, totalCharges, invoiceNumber, invoiceDate }) {
+  if (
+    _.isEmpty(referenceNo) ||
+    _.isEmpty(totalCharges) ||
+    _.isEmpty(invoiceNumber) ||
+    _.isEmpty(invoiceDate)
+  ) {
+    throw new Error('All parameters are required and must not be empty');
+  }
+
+  return `<?xml version="1.0" encoding="utf-8"?>
+  <soap12:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap12="http://www.w3.org/2003/05/soap-envelope">
+    <soap12:Header>
+      <AuthHeader xmlns="http://tempuri.org/">
+        <UserName>${WT_SOAP_USERNAME}</UserName>
+        <Password>${WT_SOAP_PASSWORD}</Password>
+      </AuthHeader>
+    </soap12:Header>
+    <soap12:Body>
+      <FinalizeCosts xmlns="http://tempuri.org/">
+        <RemitVendorNo>${LIVELOGI_VENDOR_REMITNO}</RemitVendorNo>
+        <ReferenceNo>${referenceNo}</ReferenceNo>
+        <TotalCharges>${totalCharges}</TotalCharges>
+        <InvoiceNumber>${invoiceNumber}</InvoiceNumber>
+        <InvoiceDate>${invoiceDate}</InvoiceDate>
+      </FinalizeCosts>
+    </soap12:Body>
+  </soap12:Envelope>`;
+}
+
+/**
+ * Generate HTML email content
+ * @param {Object} params - Parameters for email content
+ * @returns {string} - HTML email content
+ */
+/**
+ * Generate HTML email content
+ * @param {Object} params - Parameters for email content
+ * @returns {string} - HTML email content
+ */
+function generateEmailContent({
+  shipmentId,
+  orderNo,
+  consolNo,
+  housebill,
+  errorDetails = '',
+  type,
+  liveCharges = [],
+  totalCharges = ''
+}) {
+  let errorContent = '';
+
+  if (liveCharges && liveCharges.length > 0) {
+    errorContent = `
+    <p><span class="highlight">Error Details:</span> Due to discrepancies in cost, this shipment is in a pending approval state.</p>
+    <div style="margin-top: 20px;">
+      <p><span class="highlight">Live Charges Breakdown:</span></p>
+      <table class="charges-table">
+        <thead>
+          <tr>
+            <th>PRO Number</th>
+            <th>Charge ID</th>
+            <th>Description</th>
+            <th>Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${liveCharges
+            .map((charge) => {
+              const amount =
+                typeof charge.amount === 'string'
+                  ? parseFloat(charge.amount) || 0
+                  : charge.amount || 0;
+
+              return `
+              <tr>
+                <td>${charge.order_id}</td>
+                <td>${charge.charge_id}</td>
+                <td>${charge.descr}</td>
+                <td>$${amount.toFixed(2)}</td>
+              </tr>
+            `;
+            })
+            .join('')}
+        </tbody>
+      </table>
+    </div>
+    `;
+  } else if (totalCharges) {
+    errorContent = `
+    <p><span class="highlight">Error Details:</span> The charges in PB ($${parseFloat(totalCharges).toFixed(2)}) exceed those in WT.</p>
+    `;
+  } else if (errorDetails) {
+    errorContent = `
+    <p><span class="highlight">Error Details:</span> ${errorDetails}</p>
+    `;
+  }
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f4f4f4;
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      padding: 20px;
+      margin: 20px auto;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      background-color: #fff;
+      max-width: 600px;
+    }
+    .highlight {
+      font-weight: bold;
+    }
+    .charges-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 15px;
+    }
+    .charges-table th, .charges-table td {
+      border: 1px solid #ddd;
+      padding: 8px;
+      text-align: left;
+    }
+    .charges-table th {
+      background-color: #f9f9f9;
+      font-weight: bold;
+    }
+    .footer {
+      font-size: 0.85em;
+      color: #888;
+      margin-top: 20px;
+    }
+    .contact-support {
+      margin-top: 15px;
+      color: #444;
+      font-size: 1em;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <p>Dear Team,</p>
+    <p>We were unable to finalize the cost associated with the shipment. Below are the details:</p>
+    <p>
+      <span class="highlight">#PRO:</span> <strong>${shipmentId}</strong><br>
+      ${type !== types.MULTISTOP ? `<span class="highlight">FileNo:</span> <strong>${orderNo}</strong><br>` : ''}
+      <span class="highlight">Consolidation Number:</span> <strong>${consolNo}</strong><br>
+      <span class="highlight">blnum:</span> <strong>${housebill}</strong>
+    </p>
+
+    ${errorContent}
+
+    <p>Please contact the operations to finalize the cost for this shipment.</p>
+
+    <p>Thank you,<br>Omni Data Engineering Team</p>
+    <p class="footer">Note: This is a system-generated email. Please do not reply to this email.</p>
+  </div>
+</body>
+</html>`;
+}
+
+/**
+ * Parse the incoming record
+ * @param {Object} record - The record to parse
+ * @returns {Object|null} - The parsed record or null if invalid
+ */
+function parseRecord(record) {
+  const body = _.get(record, 'body', '');
+  const { Message } = JSON.parse(body);
+  const parsedMessage = JSON.parse(Message);
+  return AWS.DynamoDB.Converter.unmarshall(_.get(parsedMessage, 'dynamodb.NewImage', {}));
+}
+
+/**
  * check address by google api
  * @param {*} address1
  * @param {*} address2
@@ -405,5 +648,9 @@ module.exports = {
   getActualTimestamp,
   CustomAxiosError,
   executePreparedStatement,
+  sendSESEmail,
+  generateFinaliseCostPayload,
+  generateEmailContent,
+  parseRecord,
   checkAddressByGoogleApi,
 };

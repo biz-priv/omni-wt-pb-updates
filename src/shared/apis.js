@@ -26,7 +26,7 @@ const {
   LOCATION_UPDATE_TABLE,
   WT_SOAP_USERNAME,
   WT_SOAP_PASSWORD,
-  TRACKING_NOTES_API_URL
+  TRACKING_NOTES_API_URL,
 } = process.env;
 
 const sns = new AWS.SNS();
@@ -394,7 +394,6 @@ function getAddTrackingNoteXml({ housebill, note }) {
 }
 
 async function addTrackingNote({ city, state, housebill }) {
-
   const data = getAddTrackingNoteXml({ housebill, note: `Freight Location: ${city}, ${state}` });
   try {
     const config = {
@@ -431,6 +430,68 @@ async function addTrackingNote({ city, state, housebill }) {
   }
 }
 
+/**
+ * Sends the SOAP request to the external service.
+ *
+ * @param {string} soapRequest - The XML SOAP request payload.
+ * @returns {Promise<string>} - The response from the SOAP request.
+ */
+async function makeSOAPRequest(soapRequest) {
+  const config = {
+    method: 'post',
+    maxBodyLength: Infinity,
+    url: process.env.FINALISE_COST_ENDPOINT,
+    headers: {
+      'Accept': 'text/xml',
+      'Content-Type': 'text/xml',
+    },
+    data: soapRequest,
+  };
+
+  try {
+    const response = await axios.request(config);
+    if (_.get(response, 'status') === 200) {
+      return _.get(response, 'data', {});
+    }
+
+    throw new Error(`SOAP request failed with status ${response.status}`);
+  } catch (error) {
+    console.error('Error making SOAP request:', error.message);
+    const responseData = _.get(error, 'response.data', _.get(error, 'message'));
+    throw new CustomAxiosError(
+      `SOAP request failed: ${JSON.stringify(responseData)}`,
+      responseData,
+      soapRequest
+    );
+  }
+}
+
+async function updateAsComplete(query) {
+  try {
+    const config = {
+      method: 'post',
+      maxBodyLength: Infinity,
+      url: process.env.UPDATE_SOURCE_DB_API_URL,
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': process.env.UPDATE_SOURCE_DB_API_KEY,
+      },
+      data: { query },
+    };
+    console.info('🚀 -> file: dataHelper.js:38 -> querySourceDb -> config:', config);
+
+    const res = await axios.request(config);
+    console.info('🚀 -> file: dataHelper.js:41 -> querySourceDb -> res:', res);
+    if (_.get(res, 'status', '') === 200) {
+      return _.get(res, 'data', '');
+    }
+    throw new Error(`Update shipment as complete in source db API Request Failed: ${res}`);
+  } catch (error) {
+    console.error('Update shipment as complete in source db API Request Failed: ', error);
+    throw error;
+  }
+}
+
 module.exports = {
   getOrders,
   checkForPod,
@@ -442,4 +503,6 @@ module.exports = {
   uploadPOD,
   publishSNSTopicForLocationUpdate,
   addTrackingNote,
+  makeSOAPRequest,
+  updateAsComplete,
 };
