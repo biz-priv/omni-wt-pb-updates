@@ -165,8 +165,11 @@ async function processRecord(record) {
  * @returns {boolean} - Returns true if the record meets the condition
  */
 function isTransitionToReadyToBill(record) {
-  const oldImage = AWS.DynamoDB.Converter.unmarshall(_.get(record, 'dynamodb.OldImage', {}));
-  const newImage = AWS.DynamoDB.Converter.unmarshall(_.get(record, 'dynamodb.NewImage', {}));
+  const body = _.get(record, 'body', '');
+  const { Message } = JSON.parse(body);
+  const parsedMessage = JSON.parse(Message);
+  const oldImage = AWS.DynamoDB.Converter.unmarshall(_.get(parsedMessage, 'dynamodb.OldImage', {}));
+  const newImage = AWS.DynamoDB.Converter.unmarshall(_.get(parsedMessage, 'dynamodb.NewImage', {}));
 
   return _.get(oldImage, 'ready_to_bill') === 'N' && _.get(newImage, 'ready_to_bill') === 'Y';
 }
