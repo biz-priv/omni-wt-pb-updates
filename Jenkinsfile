@@ -12,7 +12,7 @@ pipeline {
                         } else if("${CHANGE_TARGET}".contains("master")){
                             env.ENVIRONMENT=env.getProperty("environment_prod")
                         }
-                    } else if ("${GIT_BRANCH}".contains("feature") || "${GIT_BRANCH}".contains("bugfix") || "${GIT_BRANCH}".contains("develop")) {
+                    } else if ("${GIT_BRANCH}".contains("feature") || "${GIT_BRANCH}".contains("bugfix") || "${GIT_BRANCH}".contains("develop") || "${GIT_BRANCH}".contains("dev-int")) {
                         env.ENVIRONMENT=env.getProperty("environment_develop")
                     } else if ("${GIT_BRANCH}".contains("master") || "${GIT_BRANCH}".contains("hotfix")){
                         env.ENVIRONMENT=env.getProperty("environment_prod")
@@ -42,7 +42,7 @@ pipeline {
                 anyOf {
                     branch 'master';
                     branch 'develop';
-                    branch 'feature/*'
+                    branch 'dev-int';
                 }
                 expression {
                     return true;
