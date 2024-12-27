@@ -20,11 +20,6 @@ const {
   WT_SOAP_USERNAME,
   ADD_MILESTONE_URL_2,
   ADD_MILESTONE_URL,
-  DB_USERNAME,
-  DB_PASSWORD,
-  DB_SERVER,
-  DB_PORT,
-  DB_DATABASE,
   ADDRESS_MAPPING_G_API_KEY,
 } = process.env;
 
@@ -247,48 +242,29 @@ class CustomAxiosError extends Error {
 
 async function executePreparedStatement({ housebill, city, state }) {
   try {
-    // Define configuration for MSSQL connection
+    const url = process.env.DB_URL;
+    const apiKey = process.env.DB_API_KEY;
+
     const config = {
-      user: DB_USERNAME,
-      password: DB_PASSWORD,
-      server: DB_SERVER,
-      database: DB_DATABASE,
-      port: Number(DB_PORT),
-      options: {
-        encrypt: true, // for Azure SQL or encryption
-        trustServerCertificate: true, // for self-signed certificates
+      method: 'post',
+      url: url,
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey
       },
-      pool: {
-        max: 10, // Max number of connections in the pool
-        min: 0, // Minimum number of connections in the pool
-        idleTimeoutMillis: 30000, // Close idle connections after 30 seconds
-      },
+      data: {
+        query: `UPDATE tbl_ShipmentHeader set FreightCity = '${city}', FreightState = '${state}' WHERE Housebill = '${housebill}'`
+      }
     };
 
-    // Create a pool
-    const poolPromise = new sql.ConnectionPool(config)
-      .connect()
-      .then((pool) => {
-        console.info('Connected to MSSQL');
-        return pool;
-      })
-      .catch((err) => {
-        console.error('Database Connection Failed!', err);
-        throw err;
-      });
-    const pool = await poolPromise;
-    const ps = new sql.PreparedStatement(pool);
-    ps.input('housebill', sql.VarChar);
-    ps.input('freight_city', sql.VarChar);
-    ps.input('freight_state', sql.VarChar);
+    const response = await axios.request(config);
 
-    await ps.prepare(
-      'UPDATE tbl_ShipmentHeader set FreightCity = @freight_city, FreightState = @freight_state WHERE Housebill = @housebill'
-    );
-    const result = await ps.execute({ housebill, freight_city: city, freight_state: state });
+    if (response.status === 200) {
+      return response.data;
+    }
 
-    await ps.unprepare();
-    return result;
+    throw new Error(`API Request Failed: ${response.status}`);
+
   } catch (err) {
     console.error('Prepared Statement error', err);
     throw err;
