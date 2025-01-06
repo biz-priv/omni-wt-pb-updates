@@ -13,7 +13,6 @@ const { js2xml } = require('xml-js');
 const axios = require('axios');
 const AWS = require('aws-sdk');
 const moment = require('moment-timezone');
-const sql = require('mssql');
 
 const ses = new AWS.SES();
 const sqs = new AWS.SQS();
@@ -22,11 +21,6 @@ const {
   WT_SOAP_USERNAME,
   ADD_MILESTONE_URL_2,
   ADD_MILESTONE_URL,
-  DB_USERNAME,
-  DB_PASSWORD,
-  DB_SERVER,
-  DB_PORT,
-  DB_DATABASE,
   OMNI_NO_REPLY_EMAIL,
   WT_SOAP_PASSWORD,
   LIVELOGI_VENDOR_REMITNO,

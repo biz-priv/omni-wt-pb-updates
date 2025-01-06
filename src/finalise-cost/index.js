@@ -282,7 +282,7 @@ async function processFinalizedCost(
         freightCharges
       );
     } else {
-      await markShipmentAsComplete(shipmentInfo, type);
+      await markShipmentAsComplete(shipmentInfo, type, shipmentId);
     }
 
     await storeFinalizeCostStatus({
@@ -391,7 +391,7 @@ async function handlePendingApproval(
     subject: `Shipment with #PRO Number ${shipmentId} is Pending Approval - ${_.toUpper(STAGE)}`,
   });
 
-  await markShipmentAsComplete(shipmentInfo, type);
+  await markShipmentAsComplete(shipmentInfo, type, shipmentId);
   console.info('Pending Approval email sent. Shipment marked as complete.');
 }
 
@@ -400,7 +400,7 @@ async function handlePendingApproval(
  * @param {Object} shipmentInfo
  * @param {string} type
  */
-async function markShipmentAsComplete(shipmentInfo, type) {
+async function markShipmentAsComplete(shipmentInfo, type, shipmentId) {
   try {
     let fkOrderNo;
     let fkOrderNos = [];
@@ -417,7 +417,7 @@ async function markShipmentAsComplete(shipmentInfo, type) {
 
     // Mark each FK_OrderNo as complete
     for (const orderNo of fkOrderNos) {
-      const query = `UPDATE dbo.tbl_shipmentapar SET Complete = 'Y' WHERE fk_orderno='${orderNo}' AND APARCode = 'V'`;
+      const query = `UPDATE dbo.tbl_shipmentapar SET Complete = 'Y' WHERE fk_orderno='${orderNo}' AND APARCode = 'V' AND RefNo = ${shipmentId}`;
       await updateAsComplete(query);
     }
 
