@@ -404,9 +404,10 @@ async function markShipmentAsComplete(shipmentInfo, type, shipmentId) {
   try {
     let fkOrderNo;
     let fkOrderNos = [];
+    let consolNo
 
     if (type === types.MULTISTOP || type === types.CONSOL) {
-      const consolNo = _.get(shipmentInfo, 'consolNo');
+      consolNo = _.get(shipmentInfo, 'consolNo');
       const results = await queryShipmentAparTable(consolNo); // Query the table using ConsolNo
       console.info('🚀 ~ file: index.js:380 ~ markShipmentAsComplete ~ results:', results);
       fkOrderNos = results.map((item) => item.FK_OrderNo); // Extract FK_OrderNo from the results
@@ -418,6 +419,11 @@ async function markShipmentAsComplete(shipmentInfo, type, shipmentId) {
     // Mark each FK_OrderNo as complete
     for (const orderNo of fkOrderNos) {
       const query = `UPDATE dbo.tbl_shipmentapar SET Complete = 'Y' WHERE fk_orderno='${orderNo}' AND APARCode = 'V' AND RefNo = ${shipmentId}`;
+      await updateAsComplete(query);
+    }
+    
+    if (consolNo) {
+      const query = `UPDATE dbo.tbl_shipmentapar SET Complete = 'Y' WHERE fk_orderno='${consolNo}' AND APARCode = 'V' AND RefNo = ${shipmentId}`;
       await updateAsComplete(query);
     }
 
