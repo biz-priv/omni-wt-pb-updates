@@ -25,6 +25,7 @@ const {
   WT_SOAP_PASSWORD,
   LIVELOGI_VENDOR_REMITNO,
   ADDRESS_MAPPING_G_API_KEY,
+  STAGE
 } = process.env;
 
 const types = {
@@ -498,12 +499,12 @@ function generateEmailContent({
       <span class="highlight">#PRO:</span> <strong>${shipmentId}</strong><br>
       ${type !== types.MULTISTOP ? `<span class="highlight">FileNo:</span> <strong>${orderNo}</strong><br>` : ''}
       <span class="highlight">Consolidation Number:</span> <strong>${consolNo}</strong><br>
-      <span class="highlight">blnum:</span> <strong>${housebill}</strong>
+      <span class="highlight">Housebill:</span> <strong>${housebill}</strong>
     </p>
     ${errorContent}
     <p>Please contact the operations to finalize the cost for this shipment.</p>
     <p>Thank you,<br>Omni Data Engineering Team</p>
-    <p class="footer">Note: This is a system-generated email. Please do not reply to this email.</p>
+    ${ STAGE === 'dev' ? '<p class="footer">Note: This is a test shipment. Please disregard this email.</p>' : '<p class="footer">Note: This is a system-generated email. Please do not reply to this email.</p>'}
   </div>
 </body>
 </html>`;
