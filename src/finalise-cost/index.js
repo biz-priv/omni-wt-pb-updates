@@ -102,6 +102,11 @@ async function processRecord(record) {
     const processedRecords = await isAlreadyProcessed(shipmentId);
     console.info('🚀 ~ file: index.js:85 ~ processRecord ~ processedRecords:', processedRecords);
 
+    const totalCharges = _.get(parsedRecord, 'total_charge', '0');
+    const otherCharges = _.get(parsedRecord, 'otherchargetotal', '0.0');
+    const freightCharges = _.get(parsedRecord, 'freight_charge', '0.0');
+    console.info('🚀 ~ file: index.js:138 ~ processRecord ~ otherCharges:', otherCharges);
+
     // If the record has a Status of SENT, send an error email and return
     const sentRecord = processedRecords.find((rec) => rec.Status === status.SENT);
     if (sentRecord) {
@@ -110,7 +115,13 @@ async function processRecord(record) {
       console.info('🚀 ~ file: index.js:93 ~ processRecord ~ billingUser:', billingUser);
       const pbUserEmail = _.get(billingUser, '[0].email_address', '');
       console.info('🚀 ~ file: index.js:95 ~ processRecord ~ userEmail:', pbUserEmail);
+      let liveCharges = [];
 
+      if (otherCharges !== '0.0') {
+        console.info('Other charges are greater than 0.');
+        liveCharges = await queryChargesTable({ shipmentId });
+        console.info('🚀 ~ file: index.js:304 ~ handlePendingApproval ~ liveCharges:', liveCharges);
+      }
       const emailContent = generateEmailContent({
         shipmentId,
         orderNo,
@@ -118,6 +129,9 @@ async function processRecord(record) {
         housebill,
         errorDetails: 'This shipment has already been finalized.',
         type,
+        liveCharges,
+        totalCharges,
+        freightCharges,
       });
 
       const userEmails = [pbUserEmail]
@@ -130,11 +144,6 @@ async function processRecord(record) {
       });
       return false;
     }
-
-    const totalCharges = _.get(parsedRecord, 'total_charge', '0');
-    const otherCharges = _.get(parsedRecord, 'otherchargetotal', '0.0');
-    const freightCharges = _.get(parsedRecord, 'freight_charge', '0.0');
-    console.info('🚀 ~ file: index.js:138 ~ processRecord ~ otherCharges:', otherCharges);
 
     const result = await processFinalizedCost(
       shipmentId,
@@ -404,7 +413,7 @@ async function markShipmentAsComplete(shipmentInfo, type, shipmentId) {
   try {
     let fkOrderNo;
     let fkOrderNos = [];
-    let consolNo
+    let consolNo;
 
     if (type === types.MULTISTOP || type === types.CONSOL) {
       consolNo = _.get(shipmentInfo, 'consolNo');
@@ -421,7 +430,7 @@ async function markShipmentAsComplete(shipmentInfo, type, shipmentId) {
       const query = `UPDATE dbo.tbl_shipmentapar SET Complete = 'Y' WHERE fk_orderno='${orderNo}' AND APARCode = 'V' AND RefNo = ${shipmentId}`;
       await updateAsComplete(query);
     }
-    
+
     if (consolNo) {
       const query = `UPDATE dbo.tbl_shipmentapar SET Complete = 'Y' WHERE fk_orderno='${consolNo}' AND APARCode = 'V' AND RefNo = ${shipmentId}`;
       await updateAsComplete(query);

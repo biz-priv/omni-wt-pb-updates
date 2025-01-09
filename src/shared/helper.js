@@ -254,11 +254,11 @@ async function executePreparedStatement({ housebill, city, state }) {
       url,
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': apiKey
+        'x-api-key': apiKey,
       },
       data: {
-        query: `UPDATE tbl_ShipmentHeader set FreightCity = '${city}', FreightState = '${state}' WHERE Housebill = '${housebill}'`
-      }
+        query: `UPDATE tbl_ShipmentHeader set FreightCity = '${city}', FreightState = '${state}' WHERE Housebill = '${housebill}'`,
+      },
     };
 
     const response = await axios.request(config);
@@ -268,7 +268,6 @@ async function executePreparedStatement({ housebill, city, state }) {
     }
 
     throw new Error(`API Request Failed: ${response.status}`);
-
   } catch (err) {
     console.error('Prepared Statement error', err);
     throw err;
@@ -281,11 +280,7 @@ async function executePreparedStatement({ housebill, city, state }) {
  */
 async function sendSESEmail({ message, subject, userEmail = '' }) {
   try {
-    const EMAIL_RECIPIENTS = [
-      'msazeed@omnilogistics.com',
-      'juddin@omnilogistics.com',
-      'kvallabhaneni@omnilogistics.com',
-    ];
+    const EMAIL_RECIPIENTS = ['msazeed@omnilogistics.com', 'juddin@omnilogistics.com'];
 
     // Check if subject matches and append the additional email
     if (
@@ -378,21 +373,25 @@ function generateEmailContent({
   type,
   liveCharges = [],
   freightCharges,
-  totalCharges = ''
+  totalCharges = '',
 }) {
   let errorContent = '';
-  
+
   if (liveCharges && liveCharges.length > 0) {
     // Create a new array that includes both live charges and freight charges
     const allCharges = [
       ...liveCharges,
       // Add freight charges as a new row if it exists
-      ...(freightCharges ? [{
-        order_id: shipmentId,
-        charge_id: '',
-        descr: 'Freight Charges',
-        amount: freightCharges
-      }] : [])
+      ...(freightCharges
+        ? [
+            {
+              order_id: shipmentId,
+              charge_id: '',
+              descr: 'Freight Charges',
+              amount: freightCharges,
+            },
+          ]
+        : []),
     ];
 
     errorContent = `
@@ -408,18 +407,21 @@ function generateEmailContent({
             </tr>
           </thead>
           <tbody>
-            ${allCharges.map((charge) => {
-              const amount = typeof charge.amount === 'string' ? 
-                parseFloat(charge.amount) || 0 : 
-                charge.amount || 0;
-              return `
+            ${allCharges
+              .map((charge) => {
+                const amount =
+                  typeof charge.amount === 'string'
+                    ? parseFloat(charge.amount) || 0
+                    : charge.amount || 0;
+                return `
                 <tr>
                   <td>${charge.charge_id}</td>
                   <td>${charge.descr}</td>
                   <td>$${amount.toFixed(2)}</td>
                 </tr>
               `;
-            }).join('')}
+              })
+              .join('')}
             <tr class="total-row">
               <td colspan="2" style="text-align: right; font-weight: bold;">Total:</td>
               <td style="font-weight: bold;">$${parseFloat(totalCharges).toFixed(2)}</td>
