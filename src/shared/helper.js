@@ -395,7 +395,10 @@ function generateEmailContent({
     ];
 
     errorContent = `
-      <p><span class="highlight">Error Details:</span> Due to discrepancies in cost, this shipment is in a pending approval state.</p>
+      <p>
+        <span class="highlight">Error Details:</span>
+        ${errorDetails || 'Due to discrepancies in cost, this shipment is in a pending approval state.'}
+      </p>
       <div style="margin-top: 20px;">
         <p><span class="highlight">Live Charges Breakdown:</span></p>
         <table class="charges-table">
