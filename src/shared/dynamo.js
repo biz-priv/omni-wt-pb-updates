@@ -862,45 +862,6 @@ async function queryUsersTable({ userId }) {
   }
 }
 
-// async function queryShipmentApar({ orderNo, consolNo }) {
-//   try {
-//     let params;
-//     const shipmentAparParams = {
-//       TableName: SHIPMENT_APAR_TABLE,
-//       KeyConditionExpression: 'FK_OrderNo = :orderno',
-//       ExpressionAttributeValues: {
-//         ':orderno': String(orderNo),
-//       },
-//       ProjectionExpression: 'FK_OrderNo, UpdatedBy',
-//     };
-
-//     const shipmentAparConsolParams = {
-//       TableName: SHIPMENT_APAR_TABLE,
-//       IndexName: SHIPMENT_APAR_INDEX_KEY_NAME,
-//       KeyConditionExpression: 'ConsolNo = :ConsolNo',
-//       FilterExpression: 'SeqNo = :seqno',
-//       ExpressionAttributeValues: {
-//         ':ConsolNo': String(consolNo),
-//         ':seqno': '9999',
-//       },
-//       ProjectionExpression: 'FK_OrderNo, UpdatedBy',
-//     };
-
-//     if (orderNo) {
-//       params = shipmentAparParams;
-//     } else {
-//       params = shipmentAparConsolParams;
-//     }
-
-//     const result = await query(params);
-//     console.info('🙂 -> file: dynamo.js:313 -> getAparDataByConsole -> result:', result);
-//     return _.get(result, 'Items[0].UpdatedBy', 'NA');
-//   } catch (error) {
-//     console.error('🙂 -> file: helper.js:546 -> error:', error);
-//     throw error;
-//   }
-// }
-
 async function fetchUserEmail({ userId }) {
   try {
     if (userId === 'NULL' || userId === 'na' || userId === '') {
@@ -966,6 +927,50 @@ async function queryShipmentAparTable(consolNo) {
   }
 }
 
+async function getStationCode(orderno, type) {
+  let params;
+  const aparParams = {
+    TableName: SHIPMENT_APAR_TABLE,
+    KeyConditionExpression: 'FK_OrderNo = :orderNo',
+    ExpressionAttributeValues: {
+      ':orderNo': orderno,
+    },
+    ProjectionExpression: 'FK_OrderNo, FK_ConsolStationId',
+  };
+  const headerParams = {
+    TableName: SHIPMENT_HEADER_TABLE,
+    KeyConditionExpression: 'PK_OrderNo = :orderNo',
+    ExpressionAttributeValues: {
+      ':orderNo': orderno,
+    },
+    ProjectionExpression: 'Housebill, ControllingStation',
+  };
+  if (type === types.NON_CONSOL) {
+    params = headerParams;
+  } else {
+    params = aparParams;
+  }
+
+  try {
+    const result = await dynamoDB.query(params).promise();
+    const items = _.get(result, 'Items', []);
+    let stationCode;
+    if (type === types.NON_CONSOL) {
+      stationCode = _.get(items, '[0].ControllingStation', null);
+    } else {
+      stationCode = _.get(items, '[0].FK_ConsolStationId', null);
+    }
+
+    if (!stationCode || stationCode === '' || stationCode === 'NULL') {
+      throw new Error(`Invalid station code: ${stationCode}`);
+    }
+    return stationCode;
+  } catch (error) {
+    console.error('Error querying SHIPMENT_APAR_TABLE:', error);
+    throw error;
+  }
+}
+
 module.exports = {
   getMovementOrder,
   getOrder,
@@ -994,8 +999,8 @@ module.exports = {
   storeFinalizeCostStatus,
   isAlreadyProcessed,
   queryUsersTable,
-  // queryShipmentApar,
   fetchUserEmail,
   queryChargesTable,
   queryShipmentAparTable,
+  getStationCode,
 };

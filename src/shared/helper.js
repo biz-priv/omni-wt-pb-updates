@@ -25,7 +25,7 @@ const {
   WT_SOAP_PASSWORD,
   LIVELOGI_VENDOR_REMITNO,
   ADDRESS_MAPPING_G_API_KEY,
-  STAGE
+  STAGE,
 } = process.env;
 
 const types = {
@@ -504,7 +504,7 @@ function generateEmailContent({
     ${errorContent}
     <p>Please contact the operations to finalize the cost for this shipment.</p>
     <p>Thank you,<br>Omni Data Engineering Team</p>
-    ${ STAGE === 'dev' ? '<p class="footer">Note: This is a test shipment. Please disregard this email.</p>' : '<p class="footer">Note: This is a system-generated email. Please do not reply to this email.</p>'}
+    ${STAGE === 'dev' ? '<p class="footer">Note: This is a test shipment. Please disregard this email.</p>' : '<p class="footer">Note: This is a system-generated email. Please do not reply to this email.</p>'}
   </div>
 </body>
 </html>`;
@@ -619,6 +619,31 @@ function toRadians(degrees) {
   return (degrees * Math.PI) / 180;
 }
 
+const controlTowerEmailMap = {
+  T01: 'controltower1@omnilogistics.com',
+  T02: 'controltower2@omnilogistics.com',
+  T03: 'controltower3@omnilogistics.com',
+  T04: 'controltower4@omnilogistics.com',
+  T05: 'controltower5@omnilogistics.com',
+  T06: 'controltower6@omnilogistics.com',
+  T07: 'controltower7@omnilogistics.com',
+  T08: 'controltower8@omnilogistics.com',
+  T09: 'controltower9@omnilogistics.com',
+  T10: 'controltower10@omnilogistics.com',
+  T11: 'controltower11@omnilogistics.com',
+  T12: 'controltower12@omnilogistics.com',
+  T13: 'controltower13@omnilogistics.com',
+  T96: 'controltower96@omnilogistics.com',
+};
+
+function getControlTowerEmail(controlTowerCode) {
+  const email = _.get(controlTowerEmailMap, controlTowerCode, null);
+  if (!email) {
+    throw new Error(`Invalid control tower code: ${controlTowerCode}`);
+  }
+  return email;
+}
+
 module.exports = {
   types,
   milestones,
@@ -637,4 +662,5 @@ module.exports = {
   generateEmailContent,
   parseRecord,
   checkAddressByGoogleApi,
+  getControlTowerEmail,
 };
