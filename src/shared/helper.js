@@ -283,13 +283,7 @@ async function sendSESEmail({ message, subject, userEmail = '' }) {
   try {
     const EMAIL_RECIPIENTS = ['msazeed@omnilogistics.com', 'juddin@omnilogistics.com'];
 
-    // Check if subject matches and append the additional email
-    if (
-      subject.startsWith('Finalize Cost Failed for Shipment') ||
-      subject.includes('Shipment with #PRO Number')
-    ) {
-      EMAIL_RECIPIENTS.push('brokerageops4@omnilogistics.com');
-    }
+    EMAIL_RECIPIENTS.push('brokerageops4@omnilogistics.com');
 
     // Append emails from userEmail, if provided
     if (userEmail) {
