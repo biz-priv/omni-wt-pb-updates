@@ -281,9 +281,12 @@ async function executePreparedStatement({ housebill, city, state }) {
  */
 async function sendSESEmail({ message, subject, userEmail = '' }) {
   try {
-    const EMAIL_RECIPIENTS = ['msazeed@omnilogistics.com', 'juddin@omnilogistics.com'];
-
-    EMAIL_RECIPIENTS.push('brokerageops4@omnilogistics.com');
+    const EMAIL_RECIPIENTS = [
+      'msazeed@omnilogistics.com',
+      'juddin@omnilogistics.com',
+      'brokerageops4@omnilogistics.com',
+      'controltower94@omnilogistics.com',
+    ];
 
     // Append emails from userEmail, if provided
     if (userEmail) {
