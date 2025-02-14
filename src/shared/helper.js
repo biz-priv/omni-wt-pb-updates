@@ -13,7 +13,6 @@ const { js2xml } = require('xml-js');
 const axios = require('axios');
 const AWS = require('aws-sdk');
 const moment = require('moment-timezone');
-const sql = require('mssql');
 
 const ses = new AWS.SES();
 const sqs = new AWS.SQS();
@@ -22,14 +21,11 @@ const {
   WT_SOAP_USERNAME,
   ADD_MILESTONE_URL_2,
   ADD_MILESTONE_URL,
-  DB_USERNAME,
-  DB_PASSWORD,
-  DB_SERVER,
-  DB_PORT,
-  DB_DATABASE,
   OMNI_NO_REPLY_EMAIL,
   WT_SOAP_PASSWORD,
   LIVELOGI_VENDOR_REMITNO,
+  ADDRESS_MAPPING_G_API_KEY,
+  STAGE,
 } = process.env;
 
 const types = {
@@ -251,48 +247,28 @@ class CustomAxiosError extends Error {
 
 async function executePreparedStatement({ housebill, city, state }) {
   try {
-    // Define configuration for MSSQL connection
+    const url = process.env.DB_URL;
+    const apiKey = process.env.DB_API_KEY;
+
     const config = {
-      user: DB_USERNAME,
-      password: DB_PASSWORD,
-      server: DB_SERVER,
-      database: DB_DATABASE,
-      port: Number(DB_PORT),
-      options: {
-        encrypt: true, // for Azure SQL or encryption
-        trustServerCertificate: true, // for self-signed certificates
+      method: 'post',
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
       },
-      pool: {
-        max: 10, // Max number of connections in the pool
-        min: 0, // Minimum number of connections in the pool
-        idleTimeoutMillis: 30000, // Close idle connections after 30 seconds
+      data: {
+        query: `UPDATE tbl_ShipmentHeader set FreightCity = '${city}', FreightState = '${state}' WHERE Housebill = '${housebill}'`,
       },
     };
 
-    // Create a pool
-    const poolPromise = new sql.ConnectionPool(config)
-      .connect()
-      .then((pool) => {
-        console.info('Connected to MSSQL');
-        return pool;
-      })
-      .catch((err) => {
-        console.error('Database Connection Failed!', err);
-        throw err;
-      });
-    const pool = await poolPromise;
-    const ps = new sql.PreparedStatement(pool);
-    ps.input('housebill', sql.VarChar);
-    ps.input('freight_city', sql.VarChar);
-    ps.input('freight_state', sql.VarChar);
+    const response = await axios.request(config);
 
-    await ps.prepare(
-      'UPDATE tbl_ShipmentHeader set FreightCity = @freight_city, FreightState = @freight_state WHERE Housebill = @housebill'
-    );
-    const result = await ps.execute({ housebill, freight_city: city, freight_state: state });
+    if (response.status === 200) {
+      return response.data;
+    }
 
-    await ps.unprepare();
-    return result;
+    throw new Error(`API Request Failed: ${response.status}`);
   } catch (err) {
     console.error('Prepared Statement error', err);
     throw err;
@@ -308,16 +284,9 @@ async function sendSESEmail({ message, subject, userEmail = '' }) {
     const EMAIL_RECIPIENTS = [
       'msazeed@omnilogistics.com',
       'juddin@omnilogistics.com',
-      'kvallabhaneni@omnilogistics.com',
+      'brokerageops4@omnilogistics.com',
+      'controltower94@omnilogistics.com',
     ];
-
-    // Check if subject matches and append the additional email
-    if (
-      subject.startsWith('Finalize Cost Failed for Shipment') ||
-      subject.includes('Shipment with #PRO Number')
-    ) {
-      EMAIL_RECIPIENTS.push('brokerageops4@omnilogistics.com');
-    }
 
     // Append emails from userEmail, if provided
     if (userEmail) {
@@ -402,7 +371,7 @@ function generateEmailContent({
   type,
   liveCharges = [],
   freightCharges,
-  totalCharges = ''
+  totalCharges = '',
 }) {
   let errorContent = '';
   
@@ -411,16 +380,23 @@ function generateEmailContent({
     const allCharges = [
       ...liveCharges,
       // Add freight charges as a new row if it exists
-      ...(freightCharges ? [{
-        order_id: shipmentId,
-        charge_id: '',
-        descr: 'Freight Charges',
-        amount: freightCharges
-      }] : [])
+      ...(freightCharges
+        ? [
+            {
+              order_id: shipmentId,
+              charge_id: '',
+              descr: 'Freight Charges',
+              amount: freightCharges,
+            },
+          ]
+        : []),
     ];
 
     errorContent = `
-      <p><span class="highlight">Error Details:</span> Due to discrepancies in cost, this shipment is in a pending approval state.</p>
+      <p>
+        <span class="highlight">Error Details:</span>
+        ${errorDetails || 'Due to discrepancies in cost, this shipment is in a pending approval state.'}
+      </p>
       <div style="margin-top: 20px;">
         <p><span class="highlight">Live Charges Breakdown:</span></p>
         <table class="charges-table">
@@ -432,18 +408,21 @@ function generateEmailContent({
             </tr>
           </thead>
           <tbody>
-            ${allCharges.map((charge) => {
-              const amount = typeof charge.amount === 'string' ? 
-                parseFloat(charge.amount) || 0 : 
-                charge.amount || 0;
-              return `
+            ${allCharges
+              .map((charge) => {
+                const amount =
+                  typeof charge.amount === 'string'
+                    ? parseFloat(charge.amount) || 0
+                    : charge.amount || 0;
+                return `
                 <tr>
                   <td>${charge.charge_id}</td>
                   <td>${charge.descr}</td>
                   <td>$${amount.toFixed(2)}</td>
                 </tr>
               `;
-            }).join('')}
+              })
+              .join('')}
             <tr class="total-row">
               <td colspan="2" style="text-align: right; font-weight: bold;">Total:</td>
               <td style="font-weight: bold;">$${parseFloat(totalCharges).toFixed(2)}</td>
@@ -517,12 +496,12 @@ function generateEmailContent({
       <span class="highlight">#PRO:</span> <strong>${shipmentId}</strong><br>
       ${type !== types.MULTISTOP ? `<span class="highlight">FileNo:</span> <strong>${orderNo}</strong><br>` : ''}
       <span class="highlight">Consolidation Number:</span> <strong>${consolNo}</strong><br>
-      <span class="highlight">blnum:</span> <strong>${housebill}</strong>
+      <span class="highlight">Housebill:</span> <strong>${housebill}</strong>
     </p>
     ${errorContent}
     <p>Please contact the operations to finalize the cost for this shipment.</p>
     <p>Thank you,<br>Omni Data Engineering Team</p>
-    <p class="footer">Note: This is a system-generated email. Please do not reply to this email.</p>
+    ${STAGE === 'dev' ? '<p class="footer">Note: This is a test shipment. Please disregard this email.</p>' : '<p class="footer">Note: This is a system-generated email. Please do not reply to this email.</p>'}
   </div>
 </body>
 </html>`;
@@ -538,6 +517,128 @@ function parseRecord(record) {
   const { Message } = JSON.parse(body);
   const parsedMessage = JSON.parse(Message);
   return AWS.DynamoDB.Converter.unmarshall(_.get(parsedMessage, 'dynamodb.NewImage', {}));
+}
+
+/**
+ * check address by google api
+ * @param {*} address1
+ * @param {*} address2
+ * @returns
+ * NOTE:- need a ssm parameter for google api url
+ */
+async function checkAddressByGoogleApi(address1, address2) {
+  let checkWithGapi = false;
+  let partialCheckWithGapi = false;
+
+  try {
+    const apiKey = ADDRESS_MAPPING_G_API_KEY;
+
+    // Get geocode data for address1
+    const geocode1 = await axios.get(
+      `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(
+        address1
+      )}&key=${apiKey}`
+    );
+    console.info('geocode1', geocode1);
+    if (geocode1.data.status !== 'OK') {
+      throw new Error(`Unable to geocode ${address1}`);
+    }
+    // Get geocode data for address2
+    const geocode2 = await axios.get(
+      `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(
+        address2
+      )}&key=${apiKey}`
+    );
+    console.info('geocode2', geocode2);
+    if (geocode2.data.status !== 'OK') {
+      throw new Error(`Unable to geocode ${address2}`);
+    }
+    console.info('geocode1', JSON.stringify(geocode1.data.results));
+    console.info('geocode2', JSON.stringify(geocode2.data.results));
+
+    const adType1 = geocode1.data?.results?.[0]?.geometry?.location_type;
+    const adType2 = geocode2.data?.results?.[0]?.geometry?.location_type;
+    /**
+     * check if distance is under 50 meters
+     */
+    if (adType1 === 'ROOFTOP' && adType2 === 'ROOFTOP') {
+      const coords1 = geocode1.data?.results?.[0]?.geometry?.location;
+      const coords2 = geocode2.data?.results?.[0]?.geometry?.location;
+
+      // Calculate the distance between the coordinates (in meters)
+      checkWithGapi = getDistance(coords1, coords2);
+    } else {
+      partialCheckWithGapi = true;
+
+      let addressArr = [];
+      if (adType1 !== 'ROOFTOP') {
+        addressArr = [...addressArr, address1];
+      }
+      if (adType2 !== 'ROOFTOP') {
+        addressArr = [...addressArr, address2];
+      }
+
+      throw new Error(
+        `Unable to locate address.  Please correct in worldtrak.\n${addressArr.join(' \nand ')}`
+      );
+    }
+
+    return { checkWithGapi, partialCheckWithGapi };
+  } catch (error) {
+    console.info('checkAddressByGoogleApi:error', error);
+    return { checkWithGapi, partialCheckWithGapi };
+  }
+}
+
+function getDistance(coords1, coords2) {
+  try {
+    const earthRadius = 6371000; // Radius of the earth in meters
+    const lat1 = toRadians(coords1.lat);
+    const lat2 = toRadians(coords2.lat);
+    const deltaLat = toRadians(coords2.lat - coords1.lat);
+    const deltaLng = toRadians(coords2.lng - coords1.lng);
+
+    const a =
+      Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2) +
+      Math.cos(lat1) * Math.cos(lat2) * Math.sin(deltaLng / 2) * Math.sin(deltaLng / 2);
+
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+    const distance = earthRadius * c;
+    return distance <= 50;
+  } catch (error) {
+    console.info('error:getDistance', error);
+    return false;
+  }
+}
+
+function toRadians(degrees) {
+  return (degrees * Math.PI) / 180;
+}
+
+const controlTowerEmailMap = {
+  T01: 'controltower1@omnilogistics.com',
+  T02: 'controltower2@omnilogistics.com',
+  T03: 'controltower3@omnilogistics.com',
+  T04: 'controltower4@omnilogistics.com',
+  T05: 'controltower5@omnilogistics.com',
+  T06: 'controltower6@omnilogistics.com',
+  T07: 'controltower7@omnilogistics.com',
+  T08: 'controltower8@omnilogistics.com',
+  T09: 'controltower9@omnilogistics.com',
+  T10: 'controltower10@omnilogistics.com',
+  T11: 'controltower11@omnilogistics.com',
+  T12: 'controltower12@omnilogistics.com',
+  T13: 'controltower13@omnilogistics.com',
+  T96: 'controltower96@omnilogistics.com',
+};
+
+function getControlTowerEmail(controlTowerCode) {
+  const email = _.get(controlTowerEmailMap, controlTowerCode, null);
+  if (!email) {
+    throw new Error(`Invalid control tower code: ${controlTowerCode}`);
+  }
+  return email;
 }
 
 module.exports = {
@@ -557,4 +658,6 @@ module.exports = {
   generateFinaliseCostPayload,
   generateEmailContent,
   parseRecord,
+  checkAddressByGoogleApi,
+  getControlTowerEmail,
 };

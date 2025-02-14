@@ -19,6 +19,10 @@ provider:
   environment:
     ERROR_SNS_TOPIC_ARN: ${ssm:/omni-pb-rt/${self:provider.stage}/error-notification/arn}
     REGION: ${opt:region, 'us-east-1'}
+    CONSIGNEE_TABLE: ${ssm:/omni-wt-rt-updates/${self:provider.stage}/consignee/ddb.tableName}
+    CONFIRMATION_COST: ${ssm:/omni-wt-rt-updates/${self:provider.stage}/confirmation-cost/ddb.tableName}
+    CONFIRMATION_COST_INDEX_KEY_NAME: ${ssm:/omni-wt-rt-updates/${self:provider.stage}/confirmation-cost/ddb.orderNoIndex}
+    ADDRESS_MAPPING_G_API_KEY: ${ssm:/omni-ivia/${self:provider.stage}/google/api.Key}
   iamRoleStatements:
     - Effect: 'Allow'
       Action:

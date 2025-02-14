@@ -13,7 +13,13 @@ const moment = require('moment-timezone');
 
 const dynamoDB = new AWS.DynamoDB.DocumentClient({ region: 'us-east-1' });
 const _ = require('lodash');
-const { types, status, milestones, getDynamoUpdateParam } = require('./helper');
+const {
+  types,
+  status,
+  milestones,
+  getDynamoUpdateParam,
+  checkAddressByGoogleApi,
+} = require('./helper');
 
 const {
   ORDERS_TABLE_NAME,
@@ -40,6 +46,9 @@ const {
   PB_USERS_TABLE,
   WT_USERS_TABLE,
   PB_CHARGES_TABLE,
+  CONSIGNEE_TABLE,
+  CONFIRMATION_COST,
+  CONFIRMATION_COST_INDEX_KEY_NAME,
 } = process.env;
 
 async function query(params) {
@@ -315,7 +324,101 @@ async function queryWithPartitionKey(tableName, key) {
   }
 }
 
-async function consigneeIsCustomer(fkOrderNo, type) {
+async function fetchConsignee(fkOrderNo) {
+  const consignee = await queryWithPartitionKey(CONSIGNEE_TABLE, {
+    FK_ConOrderNo: fkOrderNo,
+  });
+  return _.get(consignee, 'Items[0]');
+}
+
+async function fetchConfirmationCost(fkOrderNo, seqNo) {
+  const confCostParam = {
+    TableName: CONFIRMATION_COST,
+    IndexName: CONFIRMATION_COST_INDEX_KEY_NAME,
+    KeyConditionExpression: 'FK_OrderNo = :FK_OrderNo',
+    FilterExpression: 'FK_SeqNo = :FK_SeqNo',
+    ExpressionAttributeValues: {
+      ':FK_OrderNo': fkOrderNo,
+      ':FK_SeqNo': seqNo,
+    },
+  };
+  const items = await dynamoDB.query(confCostParam).promise();
+  items.Items.sort(
+    (a, b) => new Date(b.InsertedTimeStamp) - new Date(a.InsertedTimeStamp) // Descending order
+  );
+  return _.get(items, 'Items[0]');
+}
+
+// Checking the consignee and confirmation cost address as the existing process is not giving accurate data
+async function consigneeIsCustomerConsol(fkOrderNo, seqNo) {
+  const consignee = await fetchConsignee(fkOrderNo);
+  console.info('🙂 -> file: dynamo.js:346 -> consigneeIsCustomerConsol -> consignee:', consignee);
+  const confirmationCost = await fetchConfirmationCost(fkOrderNo, seqNo);
+  console.info(
+    '🙂 -> file: dynamo.js:348 -> consigneeIsCustomerConsol -> confirmationCost:',
+    confirmationCost
+  );
+  if (!consignee || !confirmationCost) {
+    return false;
+  }
+
+  // The below code is copied from src/shared/addressMapping.js of omni-real-time-updates repo
+  const payload = {
+    cc_con_zip: '0',
+    cc_con_address: '0',
+    cc_conname: '0',
+    cc_con_google_match: '0',
+  };
+
+  if (Object.hasOwn(consignee, 'ConZip') && Object.hasOwn(confirmationCost, 'ConZip')) {
+    /**
+     * HS or TL
+     * cc_con_zip
+     */
+    if (consignee.ConZip === confirmationCost.ConZip) {
+      payload.cc_con_zip = '1';
+
+      /**
+       * HS or TL
+       * cc_con_address
+       */
+      if (
+        consignee.ConAddress1 === confirmationCost.ConAddress1 &&
+        consignee.ConAddress2 === confirmationCost.ConAddress2 &&
+        consignee.ConCity === confirmationCost.ConCity &&
+        consignee.FK_ConState === confirmationCost.FK_ConState &&
+        consignee.FK_ConCountry === confirmationCost.FK_ConCountry
+      ) {
+        payload.cc_con_address = '1';
+      } else {
+        // check if we have data on shipmentApar table with  IVIA vendor T19262
+        const address1 = `${consignee.ConAddress1}, ${consignee.ConAddress2}, ${consignee.ConCity}, ${consignee.FK_ConState}, ${consignee.FK_ConCountry}, ${consignee.ConZip}`;
+        const address2 = `${confirmationCost.ConAddress1}, ${confirmationCost.ConAddress2}, ${confirmationCost.ConCity}, ${confirmationCost.FK_ConState}, ${confirmationCost.FK_ConCountry}, ${confirmationCost.ConZip}`;
+        const { checkWithGapi, partialCheckWithGapi } = await checkAddressByGoogleApi(
+          address1,
+          address2
+        );
+        if (checkWithGapi) {
+          payload.cc_con_google_match = '1';
+        } else if (partialCheckWithGapi) {
+          payload.cc_con_google_match = '2';
+        }
+      }
+    }
+  }
+  console.info('🙂 -> file: dynamo.js:359 -> consigneeIsCustomerConsol -> payload:', payload);
+  return !!(
+    payload.cc_con_zip === '1' &&
+    (payload.cc_con_address === '1' || payload.cc_con_google_match === '1')
+  );
+}
+
+async function consigneeIsCustomer(fkOrderNo, type, seqNo) {
+  let check = false;
+  if (type === types.CONSOL) {
+    return await consigneeIsCustomerConsol(fkOrderNo, seqNo);
+  }
+
   // Query the address mapping table
   let addressMapRes = await queryWithPartitionKey(ADDRESS_MAPPING_TABLE, {
     FK_OrderNo: fkOrderNo,
@@ -328,13 +431,7 @@ async function consigneeIsCustomer(fkOrderNo, type) {
   }
   addressMapRes = addressMapRes.Items[0];
 
-  let check = false;
-  if (type === types.CONSOL) {
-    check = !!(
-      addressMapRes.cc_con_zip === '1' &&
-      (addressMapRes.cc_con_address === '1' || addressMapRes.cc_con_google_match === '1')
-    );
-  } else if (type === types.MULTISTOP) {
+  if (type === types.MULTISTOP) {
     check = !!(
       addressMapRes.csh_con_zip === '1' &&
       (addressMapRes.csh_con_address === '1' || addressMapRes.csh_con_google_match === '1')
@@ -386,7 +483,7 @@ async function getAparDataByConsole({ orderNo }) {
         ':ConsolNo': String(orderNo),
         ':consolidation': 'N',
       },
-      ProjectionExpression: 'FK_OrderNo',
+      ProjectionExpression: 'FK_OrderNo, SeqNo',
     };
     const result = await query(shipmentAparParams);
     console.info('🙂 -> file: dynamo.js:313 -> getAparDataByConsole -> result:', result);
@@ -765,45 +862,6 @@ async function queryUsersTable({ userId }) {
   }
 }
 
-// async function queryShipmentApar({ orderNo, consolNo }) {
-//   try {
-//     let params;
-//     const shipmentAparParams = {
-//       TableName: SHIPMENT_APAR_TABLE,
-//       KeyConditionExpression: 'FK_OrderNo = :orderno',
-//       ExpressionAttributeValues: {
-//         ':orderno': String(orderNo),
-//       },
-//       ProjectionExpression: 'FK_OrderNo, UpdatedBy',
-//     };
-
-//     const shipmentAparConsolParams = {
-//       TableName: SHIPMENT_APAR_TABLE,
-//       IndexName: SHIPMENT_APAR_INDEX_KEY_NAME,
-//       KeyConditionExpression: 'ConsolNo = :ConsolNo',
-//       FilterExpression: 'SeqNo = :seqno',
-//       ExpressionAttributeValues: {
-//         ':ConsolNo': String(consolNo),
-//         ':seqno': '9999',
-//       },
-//       ProjectionExpression: 'FK_OrderNo, UpdatedBy',
-//     };
-
-//     if (orderNo) {
-//       params = shipmentAparParams;
-//     } else {
-//       params = shipmentAparConsolParams;
-//     }
-
-//     const result = await query(params);
-//     console.info('🙂 -> file: dynamo.js:313 -> getAparDataByConsole -> result:', result);
-//     return _.get(result, 'Items[0].UpdatedBy', 'NA');
-//   } catch (error) {
-//     console.error('🙂 -> file: helper.js:546 -> error:', error);
-//     throw error;
-//   }
-// }
-
 async function fetchUserEmail({ userId }) {
   try {
     if (userId === 'NULL' || userId === 'na' || userId === '') {
@@ -848,8 +906,8 @@ async function queryChargesTable({ shipmentId }) {
 
 async function queryShipmentAparTable(consolNo) {
   const params = {
-    TableName: SHIPMENT_APAR_TABLE, 
-    IndexName: SHIPMENT_APAR_INDEX_KEY_NAME, 
+    TableName: SHIPMENT_APAR_TABLE,
+    IndexName: SHIPMENT_APAR_INDEX_KEY_NAME,
     KeyConditionExpression: 'ConsolNo = :ConsolNo',
     FilterExpression: 'Consolidation = :consolidation AND FK_VendorId = :vendor',
     ExpressionAttributeValues: {
@@ -865,7 +923,51 @@ async function queryShipmentAparTable(consolNo) {
     return _.get(result, 'Items', []);
   } catch (error) {
     console.error('Error querying SHIPMENT_APAR_TABLE:', error);
-    throw error; 
+    throw error;
+  }
+}
+
+async function getStationCode(orderno, type) {
+  let params;
+  const aparParams = {
+    TableName: SHIPMENT_APAR_TABLE,
+    KeyConditionExpression: 'FK_OrderNo = :orderNo',
+    ExpressionAttributeValues: {
+      ':orderNo': orderno,
+    },
+    ProjectionExpression: 'FK_OrderNo, FK_ConsolStationId',
+  };
+  const headerParams = {
+    TableName: SHIPMENT_HEADER_TABLE,
+    KeyConditionExpression: 'PK_OrderNo = :orderNo',
+    ExpressionAttributeValues: {
+      ':orderNo': orderno,
+    },
+    ProjectionExpression: 'Housebill, ControllingStation',
+  };
+  if (type === types.NON_CONSOL) {
+    params = headerParams;
+  } else {
+    params = aparParams;
+  }
+
+  try {
+    const result = await dynamoDB.query(params).promise();
+    const items = _.get(result, 'Items', []);
+    let stationCode;
+    if (type === types.NON_CONSOL) {
+      stationCode = _.get(items, '[0].ControllingStation', null);
+    } else {
+      stationCode = _.get(items, '[0].FK_ConsolStationId', null);
+    }
+
+    if (!stationCode || stationCode === '' || stationCode === 'NULL') {
+      throw new Error(`Invalid station code: ${stationCode}`);
+    }
+    return stationCode;
+  } catch (error) {
+    console.error('Error querying SHIPMENT_APAR_TABLE:', error);
+    throw error;
   }
 }
 
@@ -897,8 +999,8 @@ module.exports = {
   storeFinalizeCostStatus,
   isAlreadyProcessed,
   queryUsersTable,
-  // queryShipmentApar,
   fetchUserEmail,
   queryChargesTable,
-  queryShipmentAparTable
+  queryShipmentAparTable,
+  getStationCode,
 };
