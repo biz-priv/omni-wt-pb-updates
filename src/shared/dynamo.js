@@ -11,7 +11,7 @@
 const AWS = require('aws-sdk');
 const moment = require('moment-timezone');
 
-const dynamoDB = new AWS.DynamoDB.DocumentClient();
+const dynamoDB = new AWS.DynamoDB.DocumentClient({ region: 'us-east-1' });
 const _ = require('lodash');
 const {
   types,
@@ -42,6 +42,10 @@ const {
   STATUS_INDEX,
   CALLIN_TABLE,
   LOCATION_UPDATE_TABLE,
+  FINALISE_COST_STATUS_TABLE,
+  PB_USERS_TABLE,
+  WT_USERS_TABLE,
+  PB_CHARGES_TABLE,
   CONSIGNEE_TABLE,
   CONFIRMATION_COST,
   CONFIRMATION_COST_INDEX_KEY_NAME,
@@ -257,7 +261,7 @@ async function getConsolStatus(id) {
     ExpressionAttributeValues: {
       ':ShipmentId': id,
     },
-    ProjectionExpression: '#ConsolNo, #Type',
+    ProjectionExpression: '#ConsolNo, #Type, Housebill',
   };
   console.info(
     '🙂 -> file: dynamo.js:185 -> getConsolStatus -> consolStatusParams:',
@@ -771,6 +775,202 @@ async function getStopDetails({ id }) {
   }
 }
 
+/**
+ * Stores the finalize cost status in DynamoDB.
+ * @param {Object} params - Parameters for storing in DynamoDB
+ */
+async function storeFinalizeCostStatus({
+  shipmentInfo,
+  shipmentId,
+  finaliseCostRequest,
+  response,
+  Status,
+  errorMessage = null,
+  type,
+}) {
+  const { orderNo, consolNo, housebill } = shipmentInfo;
+  // Construct the base item
+  const item = {
+    ShipmentId: shipmentId,
+    Housebill: housebill.toString(),
+    ConsolNo: consolNo,
+    Payload: finaliseCostRequest,
+    Response: response,
+    Status,
+    ErrorMsg: errorMessage,
+    UpdatedAt: moment.tz('America/Chicago').format(),
+    Type: type,
+  };
+
+  // Add ConsolNo only if type is not MULTISTOP
+  if (type !== types.MULTISTOP) {
+    item.OrderNo = orderNo;
+  }
+
+  const params = {
+    TableName: FINALISE_COST_STATUS_TABLE,
+    Item: item,
+  };
+
+  try {
+    await dynamoDB.put(params).promise();
+    console.info(`Successfully stored finalize cost status for shipment ${shipmentId}`);
+  } catch (error) {
+    console.error('Error storing finalize cost status in DynamoDB:', error);
+    throw new Error('Failed to store finalize cost status object.');
+  }
+}
+
+async function isAlreadyProcessed(shipmentId) {
+  try {
+    const params = {
+      TableName: FINALISE_COST_STATUS_TABLE,
+      KeyConditionExpression: 'ShipmentId = :shipmentId',
+      ExpressionAttributeValues: {
+        ':shipmentId': String(shipmentId),
+      },
+    };
+
+    const result = await dynamoDB.query(params).promise();
+    return _.get(result, 'Items', []);
+  } catch (error) {
+    console.error(`Error checking ${FINALISE_COST_STATUS_TABLE} table:`, error);
+    throw error;
+  }
+}
+
+async function queryUsersTable({ userId }) {
+  try {
+    if (userId === 'NULL' || userId === 'NA' || !userId) {
+      return '';
+    }
+
+    const params = {
+      TableName: PB_USERS_TABLE,
+      KeyConditionExpression: 'id = :userid',
+      ExpressionAttributeValues: {
+        ':userid': userId,
+      },
+      ProjectionExpression: 'email_address',
+    };
+
+    const result = await dynamoDB.query(params).promise();
+    return _.get(result, 'Items', []);
+  } catch (error) {
+    console.error(`Error checking ${PB_USERS_TABLE} table:`, error);
+    throw error;
+  }
+}
+
+async function fetchUserEmail({ userId }) {
+  try {
+    if (userId === 'NULL' || userId === 'na' || userId === '') {
+      return '';
+    }
+    const params = {
+      TableName: WT_USERS_TABLE,
+      KeyConditionExpression: 'PK_UserId = :PK_UserId',
+      ProjectionExpression: 'UserEmail',
+      ExpressionAttributeValues: {
+        ':PK_UserId': userId,
+      },
+    };
+    console.info('🚀 ~ file: helper.js:759 ~ fetchUserEmail ~ param:', params);
+    const response = await dynamoDB.query(params).promise();
+    return _.get(response, 'Items[0].UserEmail', '');
+  } catch (error) {
+    console.error('🙂 -> file: helper.js:831 -> error:', error);
+    throw error;
+  }
+}
+
+async function queryChargesTable({ shipmentId }) {
+  try {
+    const params = {
+      TableName: PB_CHARGES_TABLE,
+      IndexName: 'order_id-index',
+      KeyConditionExpression: 'order_id = :id',
+      ProjectionExpression: 'order_id,amount,charge_id,descr',
+      ExpressionAttributeValues: {
+        ':id': shipmentId,
+      },
+    };
+    console.info('🚀 ~ file: helper.js:841 ~ fetchUserEmail ~ param:', params);
+    const response = await dynamoDB.query(params).promise();
+    return _.get(response, 'Items', []);
+  } catch (error) {
+    console.error('🙂 -> file: helper.js:831 -> error:', error);
+    throw error;
+  }
+}
+
+async function queryShipmentAparTable(consolNo) {
+  const params = {
+    TableName: SHIPMENT_APAR_TABLE,
+    IndexName: SHIPMENT_APAR_INDEX_KEY_NAME,
+    KeyConditionExpression: 'ConsolNo = :ConsolNo',
+    FilterExpression: 'Consolidation = :consolidation AND FK_VendorId = :vendor',
+    ExpressionAttributeValues: {
+      ':ConsolNo': consolNo,
+      ':consolidation': 'N',
+      ':vendor': 'LIVELOGI',
+    },
+    ProjectionExpression: 'FK_OrderNo',
+  };
+
+  try {
+    const result = await dynamoDB.query(params).promise();
+    return _.get(result, 'Items', []);
+  } catch (error) {
+    console.error('Error querying SHIPMENT_APAR_TABLE:', error);
+    throw error;
+  }
+}
+
+async function getStationCode(orderno, type) {
+  let params;
+  const aparParams = {
+    TableName: SHIPMENT_APAR_TABLE,
+    KeyConditionExpression: 'FK_OrderNo = :orderNo',
+    ExpressionAttributeValues: {
+      ':orderNo': orderno,
+    },
+    ProjectionExpression: 'FK_OrderNo, FK_ConsolStationId',
+  };
+  const headerParams = {
+    TableName: SHIPMENT_HEADER_TABLE,
+    KeyConditionExpression: 'PK_OrderNo = :orderNo',
+    ExpressionAttributeValues: {
+      ':orderNo': orderno,
+    },
+    ProjectionExpression: 'Housebill, ControllingStation',
+  };
+  if (type === types.NON_CONSOL) {
+    params = headerParams;
+  } else {
+    params = aparParams;
+  }
+
+  try {
+    const result = await dynamoDB.query(params).promise();
+    const items = _.get(result, 'Items', []);
+    let stationCode;
+    if (type === types.NON_CONSOL) {
+      stationCode = _.get(items, '[0].ControllingStation', null);
+    } else {
+      stationCode = _.get(items, '[0].FK_ConsolStationId', null);
+    }
+
+    if (!stationCode || stationCode === '' || stationCode === 'NULL') {
+      throw new Error(`Invalid station code: ${stationCode}`);
+    }
+    return stationCode;
+  } catch (error) {
+    console.error('Error querying SHIPMENT_APAR_TABLE:', error);
+    throw error;
+  }
+}
+
 module.exports = {
   getMovementOrder,
   getOrder,
@@ -796,4 +996,11 @@ module.exports = {
   getLocationUpdateDetails,
   deleteDynamoRecord,
   getStopDetails,
+  storeFinalizeCostStatus,
+  isAlreadyProcessed,
+  queryUsersTable,
+  fetchUserEmail,
+  queryChargesTable,
+  queryShipmentAparTable,
+  getStationCode,
 };
