@@ -927,13 +927,19 @@ async function queryShipmentAparTable(consolNo) {
   }
 }
 
-async function getStationCode(orderno, type) {
+async function getStationCode(orderno, type, consolNo) {
   let params;
+  let orderNo
+  if (type === types.MULTISTOP) {
+    orderNo = consolNo;
+  } else {
+    orderNo = orderno;
+  }
   const aparParams = {
     TableName: SHIPMENT_APAR_TABLE,
     KeyConditionExpression: 'FK_OrderNo = :orderNo',
     ExpressionAttributeValues: {
-      ':orderNo': orderno,
+      ':orderNo': orderNo ,
     },
     ProjectionExpression: 'FK_OrderNo, FK_ConsolStationId',
   };
@@ -941,7 +947,7 @@ async function getStationCode(orderno, type) {
     TableName: SHIPMENT_HEADER_TABLE,
     KeyConditionExpression: 'PK_OrderNo = :orderNo',
     ExpressionAttributeValues: {
-      ':orderNo': orderno,
+      ':orderNo': orderNo,
     },
     ProjectionExpression: 'Housebill, ControllingStation',
   };

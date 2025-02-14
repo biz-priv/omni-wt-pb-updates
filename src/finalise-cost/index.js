@@ -107,7 +107,7 @@ async function processRecord(record) {
     const freightCharges = _.get(parsedRecord, 'freight_charge', '0.0');
     console.info('🚀 ~ file: index.js:138 ~ processRecord ~ otherCharges:', otherCharges);
     // retrieve station code
-    const stationCode = await getStationCode(orderNo, type);
+    const stationCode = await getStationCode(orderNo, type, consolNo);
     console.info('🚀 ~ file: index.js:140 ~ processRecord ~ stationCode:', stationCode);
 
     // retrieve control tower email
