@@ -841,7 +841,7 @@ async function isAlreadyProcessed(shipmentId) {
 
 async function queryUsersTable({ userId }) {
   try {
-    if (userId === 'NULL' || userId === 'NA' || userId === '') {
+    if (userId === 'NULL' || userId === 'NA' || !userId) {
       return '';
     }
 

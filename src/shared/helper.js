@@ -374,7 +374,7 @@ function generateEmailContent({
   totalCharges = '',
 }) {
   let errorContent = '';
-  
+
   if (liveCharges && liveCharges.length > 0) {
     // Create a new array that includes both live charges and freight charges
     const allCharges = [
@@ -631,6 +631,21 @@ const controlTowerEmailMap = {
   T12: 'controltower12@omnilogistics.com',
   T13: 'controltower13@omnilogistics.com',
   T96: 'controltower96@omnilogistics.com',
+  ATL: 'bstready@omnilogistics.com',
+  AUS: 'emora@omnilogistics.com',
+  DFW: 'mmathis@omnilogistics.com',
+  ELP: 'jalmeida@omnilogistics.com',
+  LAX: 'lorodriguez@omnilogistics.com',
+  MKE: 'jguadagni@omnilogistics.com',
+  MSP: 'jheffele@omnilogistics.com',
+  ORD: 'rperez@omnilogistics.com',
+  PDX: 'jsullivan@omnilogistics.com',
+  PHL: 'tbeatty@omnilogistics.com',
+  PHX: 'mfairley@omnilogistics.com',
+  PIT: 'jprince@omnilogistics.com',
+  SFO: 'kewright@omnilogistics.com',
+  TAN: 'rmatanane@omnilogistics.com',
+  YYZ: 'lsaad@omnilogistics.com',
 };
 
 function getControlTowerEmail(controlTowerCode) {
