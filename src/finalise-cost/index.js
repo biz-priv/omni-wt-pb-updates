@@ -25,8 +25,6 @@ const {
   storeFinalizeCostStatus,
   isAlreadyProcessed,
   queryUsersTable,
-  // queryShipmentApar,
-  // fetchUserEmail,
   queryChargesTable,
   queryShipmentAparTable,
   getStationCode,
