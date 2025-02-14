@@ -40,3 +40,4 @@ function:
     SHIPMENT_APAR_INDEX_KEY_NAME: ${ssm:/omni-wt-rt-updates/${self:provider.stage}/shipment-apar/ddb.ConsolNoIndex}
     PB_CHARGES_TABLE: ${ssm:/omni-pb-rt/${self:provider.stage}/other-charge/db}
     SHIPMENT_HEADER_TABLE: ${ssm:/omni-wt-rt-updates/${self:provider.stage}/shipment-header/ddb.tableName}
+    SES_EMAIL_RECEIPENTS: ${ssm:/omni-pb-wt-updates/${self:provider.stage}/ses/email.receipents}

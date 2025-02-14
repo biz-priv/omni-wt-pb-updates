@@ -25,6 +25,7 @@ const {
   WT_SOAP_PASSWORD,
   LIVELOGI_VENDOR_REMITNO,
   ADDRESS_MAPPING_G_API_KEY,
+  SES_EMAIL_RECEIPENTS,
   STAGE,
 } = process.env;
 
@@ -281,13 +282,7 @@ async function executePreparedStatement({ housebill, city, state }) {
  */
 async function sendSESEmail({ message, subject, userEmail = '' }) {
   try {
-    const EMAIL_RECIPIENTS = [
-      'msazeed@omnilogistics.com',
-      'juddin@omnilogistics.com',
-      'brokerageops4@omnilogistics.com',
-      'controltower94@omnilogistics.com',
-    ];
-
+    const EMAIL_RECIPIENTS = SES_EMAIL_RECEIPENTS.split(',').map((email) => email.trim());
     // Append emails from userEmail, if provided
     if (userEmail) {
       // Split the userEmail string into an array of individual emails
