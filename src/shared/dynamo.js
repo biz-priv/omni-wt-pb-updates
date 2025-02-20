@@ -937,12 +937,15 @@ async function getStationCode(orderno, type, consolNo) {
   }
   const aparParams = {
     TableName: SHIPMENT_APAR_TABLE,
-    KeyConditionExpression: 'FK_OrderNo = :orderNo',
-    ExpressionAttributeValues: {
-      ':orderNo': orderNo ,
-    },
-    ProjectionExpression: 'FK_OrderNo, FK_ConsolStationId',
-  };
+    KeyConditionExpression: 'FK_OrderNo = :orderNo and SeqNo = :seqNo',
+      FilterExpression: 'FK_VendorId = :vendor',
+      ExpressionAttributeValues: {
+        ':orderNo': orderNo,
+        ':vendor': 'LIVELOGI',
+        ':seqNo': '9999',
+      },
+      ProjectionExpression: 'FK_OrderNo, FK_ConsolStationId',
+    };
   const headerParams = {
     TableName: SHIPMENT_HEADER_TABLE,
     KeyConditionExpression: 'PK_OrderNo = :orderNo',

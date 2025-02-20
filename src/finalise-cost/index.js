@@ -408,7 +408,7 @@ async function handlePendingApproval(
     totalCharges,
     freightCharges,
   });
-
+  userEmails.push('omnicosting@omnilogistics.com');
   await sendSESEmail({
     message: emailContent,
     subject: `Shipment with #PRO Number ${shipmentId} is Pending Approval - ${_.toUpper(STAGE)}`,
