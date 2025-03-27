@@ -450,12 +450,12 @@ async function markShipmentAsComplete(shipmentInfo, type, shipmentId) {
 
     // Mark each FK_OrderNo as complete
     for (const orderNo of fkOrderNos) {
-      const query = `UPDATE dbo.tbl_shipmentapar SET Complete = 'Y' WHERE fk_orderno='${orderNo}' AND APARCode = 'V' AND RefNo = ${shipmentId}`;
+      const query = `UPDATE dbo.tbl_shipmentapar SET Complete = 'Y' WHERE fk_orderno='${orderNo}' AND APARCode = 'V' AND RefNo = '${shipmentId}'`;
       await updateAsComplete(query);
     }
 
     if (consolNo) {
-      const query = `UPDATE dbo.tbl_shipmentapar SET Complete = 'Y' WHERE fk_orderno='${consolNo}' AND APARCode = 'V' AND RefNo = ${shipmentId}`;
+      const query = `UPDATE dbo.tbl_shipmentapar SET Complete = 'Y' WHERE fk_orderno='${consolNo}' AND APARCode = 'V' AND RefNo = '${shipmentId}'`;
       await updateAsComplete(query);
     }
 
