@@ -21,7 +21,7 @@ const {
   getControlTowerEmail,
 } = require('../shared/helper');
 const {
-  getShipmentDetails,
+  getShipmentDetailsapar,
   storeFinalizeCostStatus,
   isAlreadyProcessed,
   queryUsersTable,
@@ -80,7 +80,8 @@ async function processRecord(record) {
     if (!parsedRecord) return false;
 
     shipmentId = _.get(parsedRecord, 'id', '');
-    shipmentDetails = await getShipmentDetails({ shipmentId });
+    shipmentDetails = await getShipmentDetailsapar({ shipmentId });
+    console.info('🚀 ~ file: index.js:83 ~ processRecord ~ shipmentDetails:', shipmentDetails);
 
     if (!isValidShipment(shipmentDetails)) {
       console.info('Invalid shipment. Skipping.');
@@ -89,10 +90,10 @@ async function processRecord(record) {
     userId = _.get(parsedRecord, 'billing_user_id', 'NA');
     type = _.get(shipmentDetails, 'Type', 'NA');
     console.info('🚀 ~ file: index.js:83 ~ processRecord ~ type:', type);
-    const { housebill, orderNo, consolNo } = extractShipmentInfo(shipmentDetails);
-    console.info('🚀 ~ file: index.js:79 ~ processRecord ~ consolNo:', consolNo);
-    console.info('🚀 ~ file: index.js:80 ~ processRecord ~ orderNo:', orderNo);
-    console.info('🚀 ~ file: index.js:81 ~ processRecord ~ housebill:', housebill);
+    // const { housebill, orderNo, consolNo } = extractShipmentInfo(shipmentDetails);
+    // console.info('🚀 ~ file: index.js:79 ~ processRecord ~ consolNo:', consolNo);
+    // console.info('🚀 ~ file: index.js:80 ~ processRecord ~ orderNo:', orderNo);
+    // console.info('🚀 ~ file: index.js:81 ~ processRecord ~ housebill:', housebill);
 
     if (!isReadyToBill(parsedRecord)) {
       console.info('Record not ready to bill.');

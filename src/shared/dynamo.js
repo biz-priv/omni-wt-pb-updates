@@ -49,6 +49,7 @@ const {
   CONSIGNEE_TABLE,
   CONFIRMATION_COST,
   CONFIRMATION_COST_INDEX_KEY_NAME,
+  SHIPMENT_APAR_REF_INDEX_KEY_NAME
 } = process.env;
 
 async function query(params) {
@@ -471,6 +472,97 @@ async function getShipmentDetails({ shipmentId }) {
   }
   return {};
 }
+
+async function getShipmentDetailsapar({ shipmentId }) {
+  try {
+    const params = {
+      TableName: SHIPMENT_APAR_TABLE,
+      IndexName: 'RefNo-FK_OrderNo-index',
+      KeyConditionExpression: 'RefNo = :refno',
+      FilterExpression: 'FK_VendorId = :vendor',
+      ExpressionAttributeValues: {
+        ':refno': String(shipmentId),
+        ':vendor': 'LIVELOGI'
+      },
+      ProjectionExpression: 'FK_OrderNo, SeqNo, FK_ServiceId, ConsolNo, Consolidation, FK_VendorId',
+    };
+    console.info('🙂 -> file: dynamo.js:426 -> getShipmentDetailsapar -> params:', params);
+
+    const result = await query(params)
+    console.info('🙂 -> file: dynamo.js:426 -> getShipmentDetailsapar -> result:', result);
+    const items = result;
+    console.info('🙂 -> file: dynamo.js:426 -> getShipmentDetailsapar -> items:', items);
+
+    if (!items || items.length === 0) {
+      throw new Error('Shipment not found');
+    }
+
+    let shipmentType = 'unknown';
+    let consolNo = '';
+    let fk_orderNo = '';
+    let housebill = '';
+
+    if (items.length === 1) {
+      const item = items[0];
+      console.info('🙂 -> file: dynamo.js:426 -> getShipmentDetailsapar -> item:', item)
+      const { ConsolNo, FK_ServiceId: serviceLevelId, FK_VendorId: vendorId } = item;
+      console.info('🙂 -> file: dynamo.js:426 -> getShipmentDetailsapar -> FK_ServiceId:', serviceLevelId)
+      console.info('🙂 -> file: dynamo.js:426 -> getShipmentDetailsapar -> FK_VendorId:', vendorId)
+      console.info('🙂 -> file: dynamo.js:426 -> getShipmentDetailsapar -> ConsolNo:', ConsolNo)
+
+      if (
+        Number(ConsolNo) === 0 &&
+        ['HS', 'TL'].includes(serviceLevelId) &&
+        vendorId === 'LIVELOGI'
+      ) {
+        shipmentType = 'NON_CONSOLE';
+        fk_orderNo = item.FK_OrderNo
+        consolNo = item.ConsolNo;
+        const housebillData = await getShipmentHeaderData({orderNo: fk_orderNo});
+        console.info('🙂 -> file: dynamo.js:426 -> getShipmentDetailsapar -> housebillData:', housebillData);
+        housebill = housebillData[0].Housebill;
+      }
+    } else {
+      const consolidationRecord = items.find(item => item.SeqNo === '9999');
+      if (consolidationRecord) {
+        const serviceLevelId = consolidationRecord.FK_ServiceId;
+        consolNo = consolidationRecord.ConsolNo;
+
+        if (['HS', 'TL'].includes(serviceLevelId)) {
+          shipmentType = 'CONSOLE';
+        } else if (serviceLevelId === 'MT') {
+          shipmentType = 'MULTISTOP';
+        }
+
+        const filteredItems = items.filter(item => item.SeqNo !== '9999');
+        const orderNos = [...new Set(filteredItems.map(item => item.FK_OrderNo))];
+        fk_orderNo = orderNos.join(',');
+        console.info('🙂 -> file: dynamo.js:426 -> getShipmentDetailsapar -> orderNos:', orderNos);
+
+        const housebillsArray = await Promise.all(
+          orderNos.map(async (orderNo) => {
+            const result = await getShipmentHeaderData({ orderNo });
+            return result?.[0]?.Housebill || ''; // safe access
+          })
+        );
+        
+        housebill = housebillsArray.filter(Boolean).join(',');
+      }
+    }
+
+    return {
+      shipmentType,
+      consolNo,
+      fk_orderNo,
+      housebill
+    };
+
+  } catch (error) {
+    console.error('Error in getShipmentDetailsapar:', error);
+    throw error;
+  }
+}
+
 
 async function getAparDataByConsole({ orderNo }) {
   try {
@@ -991,6 +1083,7 @@ module.exports = {
   queryWithPartitionKey,
   consigneeIsCustomer,
   getShipmentDetails,
+  getShipmentDetailsapar,
   getAparDataByConsole,
   getShipmentHeaderData,
   getConsolStopHeader,
