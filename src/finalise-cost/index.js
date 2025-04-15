@@ -156,7 +156,7 @@ async function processRecord(record) {
       });
       return false;
     }
-    return shipmentDetails;
+    
     const result = await processFinalizedCost(
       shipmentId,
       totalCharges,
