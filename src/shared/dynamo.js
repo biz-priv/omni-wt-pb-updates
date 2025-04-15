@@ -477,7 +477,7 @@ async function getShipmentDetailsapar({ shipmentId }) {
   try {
     const params = {
       TableName: SHIPMENT_APAR_TABLE,
-      IndexName: 'RefNo-FK_OrderNo-index',
+      IndexName:  SHIPMENT_APAR_REF_INDEX_KEY_NAME, //'RefNo-FK_OrderNo-index',
       KeyConditionExpression: 'RefNo = :refno',
       FilterExpression: 'FK_VendorId = :vendor',
       ExpressionAttributeValues: {
