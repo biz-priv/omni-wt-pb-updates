@@ -49,7 +49,7 @@ const {
   CONSIGNEE_TABLE,
   CONFIRMATION_COST,
   CONFIRMATION_COST_INDEX_KEY_NAME,
-  SHIPMENT_APAR_REF_INDEX_KEY_NAME
+  SHIPMENT_APAR_REF_INDEX_KEY_NAME,
 } = process.env;
 
 async function query(params) {
@@ -482,13 +482,13 @@ async function getShipmentDetailsapar({ shipmentId }) {
       FilterExpression: 'FK_VendorId = :vendor',
       ExpressionAttributeValues: {
         ':refno': String(shipmentId),
-        ':vendor': 'LIVELOGI'
+        ':vendor': 'LIVELOGI',
       },
       ProjectionExpression: 'FK_OrderNo, SeqNo, FK_ServiceId, ConsolNo, Consolidation, FK_VendorId',
     };
     console.info('🙂 -> file: dynamo.js:426 -> getShipmentDetailsapar -> params:', params);
 
-    const result = await query(params)
+    const result = await query(params);
     console.info('🙂 -> file: dynamo.js:426 -> getShipmentDetailsapar -> result:', result);
     const items = result;
     console.info('🙂 -> file: dynamo.js:426 -> getShipmentDetailsapar -> items:', items);
@@ -499,45 +499,51 @@ async function getShipmentDetailsapar({ shipmentId }) {
 
     let shipmentType = 'unknown';
     let consolNo = '';
-    let fk_orderNo = '';
+    let orderNo = '';
     let housebill = '';
 
     if (items.length === 1) {
       const item = items[0];
-      console.info('🙂 -> file: dynamo.js:426 -> getShipmentDetailsapar -> item:', item)
+      console.info('🙂 -> file: dynamo.js:426 -> getShipmentDetailsapar -> item:', item);
       const { ConsolNo, FK_ServiceId: serviceLevelId, FK_VendorId: vendorId } = item;
-      console.info('🙂 -> file: dynamo.js:426 -> getShipmentDetailsapar -> FK_ServiceId:', serviceLevelId)
-      console.info('🙂 -> file: dynamo.js:426 -> getShipmentDetailsapar -> FK_VendorId:', vendorId)
-      console.info('🙂 -> file: dynamo.js:426 -> getShipmentDetailsapar -> ConsolNo:', ConsolNo)
+      console.info(
+        '🙂 -> file: dynamo.js:426 -> getShipmentDetailsapar -> FK_ServiceId:',
+        serviceLevelId
+      );
+      console.info('🙂 -> file: dynamo.js:426 -> getShipmentDetailsapar -> FK_VendorId:', vendorId);
+      console.info('🙂 -> file: dynamo.js:426 -> getShipmentDetailsapar -> ConsolNo:', ConsolNo);
 
       if (
         Number(ConsolNo) === 0 &&
         ['HS', 'TL'].includes(serviceLevelId) &&
         vendorId === 'LIVELOGI'
       ) {
-        shipmentType = 'NON_CONSOLE';
-        fk_orderNo = item.FK_OrderNo
+        shipmentType = types.NON_CONSOL;
+        orderNo = item.FK_OrderNo;
         consolNo = item.ConsolNo;
-        const housebillData = await getShipmentHeaderData({orderNo: fk_orderNo});
-        console.info('🙂 -> file: dynamo.js:426 -> getShipmentDetailsapar -> housebillData:', housebillData);
+        const housebillData = await getShipmentHeaderData({ orderNo });
+        console.info(
+          '🙂 -> file: dynamo.js:426 -> getShipmentDetailsapar -> housebillData:',
+          housebillData
+        );
         housebill = housebillData[0].Housebill;
       }
     } else {
-      const consolidationRecord = items.find(item => item.SeqNo === '9999');
+      const consolidationRecord = items.find((item) => item.SeqNo === '9999');
       if (consolidationRecord) {
         const serviceLevelId = consolidationRecord.FK_ServiceId;
         consolNo = consolidationRecord.ConsolNo;
 
         if (['HS', 'TL'].includes(serviceLevelId)) {
-          shipmentType = 'CONSOLE';
+          shipmentType = types.CONSOL;
         } else if (serviceLevelId === 'MT') {
-          shipmentType = 'MULTISTOP';
+          shipmentType = types.MULTISTOP;
         }
 
-        const filteredItems = items.filter(item => item.SeqNo !== '9999');
-        const orderNos = [...new Set(filteredItems.map(item => item.FK_OrderNo))];
-        fk_orderNo = orderNos.join(',');
-        console.info('🙂 -> file: dynamo.js:426 -> getShipmentDetailsapar -> orderNos:', orderNos);
+        const filteredItems = items.filter((item) => item.SeqNo !== '9999');
+        const orderNos = [...new Set(filteredItems.map((item) => item.FK_OrderNo))];
+        orderNo = orderNos.join(',');
+        console.info('🙂 -> file: dynamo.js:546 -> getShipmentDetailsapar -> orderNo:', orderNo);
 
         const housebillsArray = await Promise.all(
           orderNos.map(async (orderNo) => {
@@ -545,7 +551,7 @@ async function getShipmentDetailsapar({ shipmentId }) {
             return result?.[0]?.Housebill || ''; // safe access
           })
         );
-        
+
         housebill = housebillsArray.filter(Boolean).join(',');
       }
     }
@@ -553,16 +559,14 @@ async function getShipmentDetailsapar({ shipmentId }) {
     return {
       shipmentType,
       consolNo,
-      fk_orderNo,
-      housebill
+      orderNo,
+      housebill,
     };
-
   } catch (error) {
     console.error('Error in getShipmentDetailsapar:', error);
     throw error;
   }
 }
-
 
 async function getAparDataByConsole({ orderNo }) {
   try {
@@ -1022,10 +1026,10 @@ async function queryShipmentAparTable(consolNo) {
 async function getStationCode(orderno, type, consolNo) {
   let params;
   let orderNo;
-  if (type === types.MULTISTOP) {
-    orderNo = consolNo;
-  } else {
+  if (type === types.NON_CONSOL) {
     orderNo = orderno;
+  } else {
+    orderNo = consolNo;
   }
   const aparParams = {
     TableName: SHIPMENT_APAR_TABLE,
