@@ -88,12 +88,13 @@ async function processRecord(record) {
       return false;
     }
     userId = _.get(parsedRecord, 'billing_user_id', 'NA');
-    type = _.get(shipmentDetails, 'Type', 'NA');
+    type = _.get(shipmentDetails, 'shipmentType', 'NA');
     console.info('🚀 ~ file: index.js:83 ~ processRecord ~ type:', type);
-    // const { housebill, orderNo, consolNo } = extractShipmentInfo(shipmentDetails);
-    // console.info('🚀 ~ file: index.js:79 ~ processRecord ~ consolNo:', consolNo);
-    // console.info('🚀 ~ file: index.js:80 ~ processRecord ~ orderNo:', orderNo);
-    // console.info('🚀 ~ file: index.js:81 ~ processRecord ~ housebill:', housebill);
+    const { housebill, orderNo, consolNo } = shipmentDetails;
+    console.info('🚀 ~ file: index.js:79 ~ processRecord ~ consolNo:', consolNo);
+    console.info('🚀 ~ file: index.js:80 ~ processRecord ~ orderNo:', orderNo);
+    console.info('🚀 ~ file: index.js:81 ~ processRecord ~ housebill:', housebill);
+    console.info('🚀 ~ file: index.js:82 ~ processRecord ~ type:', type);
 
     if (!isReadyToBill(parsedRecord)) {
       console.info('Record not ready to bill.');
@@ -155,7 +156,7 @@ async function processRecord(record) {
       });
       return false;
     }
-
+    return shipmentDetails;
     const result = await processFinalizedCost(
       shipmentId,
       totalCharges,
@@ -203,45 +204,9 @@ function isTransitionToReadyToBill(record) {
  * @returns {boolean} - Returns true if the shipment is valid
  */
 function isValidShipment(shipmentDetails) {
-  const type = _.get(shipmentDetails, 'Type');
+  const type = _.get(shipmentDetails, 'shipmentType');
   const housebill = _.get(shipmentDetails, 'housebill');
   return type && shipmentDetails && housebill;
-}
-
-/**
- * Extract relevant information from shipment details
- * @param {Object} shipmentDetails - The shipment details
- * @returns {Object} - Object containing housebill, orderNo, and consolNo
- */
-function extractShipmentInfo(shipmentDetails) {
-  const type = _.get(shipmentDetails, 'Type');
-  let housebill;
-  let orderNo;
-  let consolNo;
-
-  switch (type) {
-    case types.NON_CONSOL:
-      orderNo = _.get(shipmentDetails, 'FK_OrderNo');
-      housebill = _.get(shipmentDetails, 'Housebill');
-      consolNo = _.get(shipmentDetails, 'consolNo', '0');
-      break;
-    case types.CONSOL:
-      orderNo = _.get(shipmentDetails, 'FK_OrderNo', '0');
-      housebill = _.get(shipmentDetails, 'Housebill', '0');
-      consolNo = _.get(shipmentDetails, 'FK_OrderNo', '0');
-      break;
-    case types.MULTISTOP:
-      orderNo = _.get(shipmentDetails, 'FK_OrderNo', '0');
-      housebill = _.get(shipmentDetails, 'Housebill', '0');
-      consolNo = _.get(shipmentDetails, 'ConsolNo', '0');
-      break;
-    default:
-      orderNo = '0';
-      housebill = '0';
-      consolNo = '0';
-  }
-
-  return { housebill, orderNo, consolNo };
 }
 
 /**
@@ -474,15 +439,7 @@ async function markShipmentAsComplete(shipmentInfo, type, shipmentId) {
  * @param {Object} shipmentInfo - Object containing shipment information
  */
 async function handleProcessingError(error, shipmentId, shipmentInfo, type, userId, wtCtEmail) {
-  const { housebill, orderNo, consolNo } = extractShipmentInfo(shipmentInfo);
-  await sendErrorNotification(
-    shipmentId,
-    { housebill, orderNo, consolNo },
-    error.message,
-    type,
-    userId,
-    wtCtEmail
-  );
+  await sendErrorNotification(shipmentId, shipmentInfo, error.message, type, userId, wtCtEmail);
 }
 
 /**
