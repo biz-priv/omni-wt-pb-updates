@@ -546,9 +546,9 @@ async function getShipmentDetailsapar({ shipmentId }) {
         console.info('🙂 -> file: dynamo.js:546 -> getShipmentDetailsapar -> orderNo:', orderNo);
 
         const housebillsArray = await Promise.all(
-          orderNos.map(async (orderNo) => {
-            const result = await getShipmentHeaderData({ orderNo });
-            return result?.[0]?.Housebill || ''; // safe access
+          orderNos.map(async (order) => {
+            const res = await getShipmentHeaderData({ orderNo: order });
+            return res?.[0]?.Housebill || ''; // safe access
           })
         );
 
