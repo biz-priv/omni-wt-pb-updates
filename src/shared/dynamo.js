@@ -494,7 +494,7 @@ async function getShipmentDetailsapar({ shipmentId }) {
     console.info('🙂 -> file: dynamo.js:426 -> getShipmentDetailsapar -> items:', items);
 
     if (!items || items.length === 0) {
-      throw new Error('Shipment not found');
+      return {}
     }
 
     let shipmentType = 'unknown';
