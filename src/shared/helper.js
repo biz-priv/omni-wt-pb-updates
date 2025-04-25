@@ -246,6 +246,10 @@ class CustomAxiosError extends Error {
   }
 }
 
+function escapeSqlString(str) {
+  return str.replace(/'/g, "''");
+}
+
 async function executePreparedStatement({ housebill, city, state }) {
   try {
     const url = process.env.DB_URL;
@@ -259,7 +263,7 @@ async function executePreparedStatement({ housebill, city, state }) {
         'x-api-key': apiKey,
       },
       data: {
-        query: `UPDATE tbl_ShipmentHeader set FreightCity = '${city}', FreightState = '${state}' WHERE Housebill = '${housebill}'`,
+        query: `UPDATE tbl_ShipmentHeader set FreightCity = '${escapeSqlString(city)}', FreightState = '${state}' WHERE Housebill = '${housebill}'`,
       },
     };
 
@@ -428,6 +432,11 @@ function generateEmailContent({
     `;
   } else if (totalCharges) {
     errorContent = `<p><span class="highlight">Error Details:</span> The charges in PB ($${parseFloat(totalCharges).toFixed(2)}) exceed those in WT.</p>`;
+
+    if (errorDetails.startsWith('This shipment has')) {
+      errorContent += `<p>${errorDetails}</p>`;
+      console.info('errorContent:', errorContent);
+    }
   } else if (errorDetails) {
     errorContent = `<p><span class="highlight">Error Details:</span> ${errorDetails}</p>`;
   }
